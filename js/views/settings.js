@@ -39,6 +39,7 @@ export function render(ctx) {
       ${
         backend.kind === 'drive'
           ? html`
+            ${when(backend.account, () => html`<p>מחובר/ת כ-<b>${backend.account.name || ''}</b> <span class="muted" dir="ltr">${backend.account.email}</span></p>`)}
             <p>הנתונים נשמרים ב-Google Drive שלך, בתיקייה <b>${cfg.folderName}</b>, בקובץ אחד בפורמט JSON. בכל יום נשמר גם גיבוי בתת-התיקייה "גיבויים".</p>
             <p class="muted small">אפשר להעביר את התיקייה לכל מקום ב-Drive – האפליקציה תמשיך למצוא אותה. לאפליקציה יש גישה רק לקבצים שהיא עצמה יצרה.</p>
             <div class="toolbar">

@@ -6,7 +6,13 @@
   <meta name="color-scheme" content="light dark">
   <meta name="description" content="ניהול שיחות אישיות של מחנך עם תלמידים">
   <title>שיחות אישיות</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='11' cy='12' r='6' fill='%233b6fd8'/%3E%3Ccircle cx='21' cy='12' r='6' fill='%2322a37a'/%3E%3Crect x='4' y='20' width='24' height='8' rx='4' fill='%233b6fd8'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#3b6fd8">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="שיחות אישיות">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
@@ -21,7 +27,15 @@
     </div>
   </header>
   <main id="main" class="container">
-    <section class="card welcome"><p>טוען…</p></section>
+    <!-- Static description, shown until the app loads (and readable without JavaScript). -->
+    <section class="card welcome">
+      <h1>שיחות אישיות עם תלמידים</h1>
+      <p>כלי חינמי למחנכים לניהול שיחות אחד-על-אחד עם תלמידי הכיתה: סיכומי מפגשים, נושאים לשיחה הבאה, מטרות אישיות וכיתתיות, תזמון מפגשים ותזכורות למי לא נפגש לאחרונה.</p>
+      <p>הנתונים נשמרים בתיקייה ייעודית ב-Google Drive של המשתמש. האפליקציה מבקשת הרשאה לקבצים שהיא עצמה יוצרת בלבד (<span dir="ltr">drive.file</span>) ואין לה גישה לשאר הקבצים ב-Drive. אין שרת – המידע לא נשלח לשום גורם מלבד Google Drive של המשתמש.</p>
+      <p lang="en" dir="ltr" class="muted small">One-on-one: a free tool for homeroom teachers to manage personal meetings with their students. Data is stored only in the user's own Google Drive, in a folder the app creates, using the drive.file scope (access to files created by this app only).</p>
+      <p class="small"><a href="privacy.html">מדיניות פרטיות · Privacy policy</a></p>
+      <p class="muted">טוען…</p>
+    </section>
   </main>
   <noscript>יש להפעיל JavaScript כדי להשתמש באפליקציה.</noscript>
   <script type="module" src="js/app.js"></script>

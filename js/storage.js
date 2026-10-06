@@ -76,8 +76,25 @@ export class DriveBackend {
     return !!this.token && Date.now() < this.expiresAt;
   }
 
-  /** Must be called from a user gesture (click) the first time, since it may open a popup. */
-  async signIn({ silent = false } = {}) {
+  /** True when the access token is missing or about to expire (tokens last ~1 hour). */
+  get needsRefresh() {
+    return !this.token || Date.now() > this.expiresAt - 10 * 60 * 1000;
+  }
+
+  /** The Google account used last time, so returning users skip the account chooser. */
+  get account() {
+    try {
+      return JSON.parse(localStorage.getItem('oneonone.drive.account')) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get an access token. Opens a Google popup, so it must run inside a user gesture (click).
+   * For a returning user (consent already given, account known) the popup closes by itself.
+   */
+  async signIn() {
     await loadGIS();
     if (!this.tokenClient) {
       this.tokenClient = google.accounts.oauth2.initTokenClient({
@@ -90,7 +107,7 @@ export class DriveBackend {
           if (resp.error) p.reject(new AuthError(resp.error_description || resp.error));
           else {
             this.token = resp.access_token;
-            this.expiresAt = Date.now() + (Number(resp.expires_in) - 120) * 1000;
+            this.expiresAt = Date.now() + (Number(resp.expires_in) - 60) * 1000;
             localStorage.setItem('oneonone.drive.authorized', '1');
             p.resolve();
           }
@@ -102,10 +119,45 @@ export class DriveBackend {
         },
       });
     }
-    return new Promise((resolve, reject) => {
+    if (this.pending) return this.pending.promise;
+    const returning = !!localStorage.getItem('oneonone.drive.authorized');
+    const promise = new Promise((resolve, reject) => {
       this.pending = { resolve, reject };
-      this.tokenClient.requestAccessToken({ prompt: silent ? '' : localStorage.getItem('oneonone.drive.authorized') ? '' : 'consent' });
+      this.tokenClient.requestAccessToken({
+        prompt: returning ? '' : 'consent',
+        ...(this.account?.email ? { login_hint: this.account.email } : {}),
+      });
     });
+    this.pending.promise = promise;
+    await promise;
+    if (!this.account) await this.fetchAccount().catch(() => {});
+    return promise;
+  }
+
+  async fetchAccount() {
+    const res = await this.request(`${API}/about?fields=user(emailAddress,displayName)`);
+    const { user } = await res.json();
+    localStorage.setItem('oneonone.drive.account', JSON.stringify({ email: user.emailAddress, name: user.displayName }));
+  }
+
+  /** Start loading Google's sign-in script early so the first click can open the popup at once. */
+  preload() {
+    loadGIS().catch(() => {});
+  }
+
+  forgetAccount() {
+    localStorage.removeItem('oneonone.drive.account');
+    localStorage.removeItem('oneonone.drive.authorized');
+    localStorage.removeItem('oneonone.drive.folderId');
+  }
+
+  /** Refresh the token while the user is active, so saves never hit an expired token. */
+  refreshIfNeeded() {
+    if (this.needsRefresh && !this.pending && globalThis.google?.accounts?.oauth2) {
+      this.signIn().catch((e) => console.warn('token refresh failed', e));
+      return true;
+    }
+    return false;
   }
 
   signOut() {
@@ -113,6 +165,7 @@ export class DriveBackend {
     this.token = null;
     this.expiresAt = 0;
     localStorage.removeItem('oneonone.drive.authorized');
+    localStorage.removeItem('oneonone.drive.account');
   }
 
   async request(url, options = {}) {

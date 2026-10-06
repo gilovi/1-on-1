@@ -447,3 +447,12 @@ details.contact { margin-top: .5rem; }
   .card { padding: 1rem; }
   .toolbar input[type='search'] { width: 100%; }
 }
+
+/* ------------------------------------------------------------ sign-in */
+
+.google-btn { background: var(--surface); color: var(--text); border-color: var(--border); font-weight: 500; padding: .6rem 1.2rem; }
+.google-btn:hover { background: var(--surface-2); }
+.g-icon { width: 18px; height: 18px; flex: none; }
+.welcome form .google-btn { margin-bottom: .5rem; }
+.footer-links { margin-top: 1.5rem; }
+article.welcome ul { padding-inline-start: 1.25rem; }

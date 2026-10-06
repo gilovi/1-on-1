@@ -48,6 +48,9 @@ const commonHandlers = {
   'app.signIn'() {
     app.connectDrive();
   },
+  'app.switchAccount'() {
+    app.switchAccount();
+  },
   'app.retrySave'() {
     app.reauthAndSave();
   },
@@ -164,29 +167,62 @@ const app = {
             </label>
             <p class="muted small">יש ליצור מזהה פעם אחת ב-Google Cloud Console – ההוראות בקובץ README.</p>`,
           )}
-          <label class="field"><span>שם התיקייה ב-Drive</span><input name="folderName" value="${this.config.folderName}"></label>
-          <button class="btn" type="submit">התחברות ל-Google Drive</button>
+          <button class="btn google-btn" type="submit">${googleIcon} התחברות עם Google</button>
+          <details class="small">
+            <summary>אפשרויות מתקדמות</summary>
+            <label class="field"><span>שם התיקייה ב-Drive</span><input name="folderName" value="${this.config.folderName}"></label>
+          </details>
         </form>
         <hr>
         <h2>ניסיון ללא חשבון</h2>
         <p class="muted small">הנתונים יישמרו רק בדפדפן הזה. אפשר לעבור ל-Drive בהמשך מתוך ההגדרות, והנתונים יועברו.</p>
         <button class="btn secondary" data-action="welcome.local">כניסה במצב ניסיון</button>
+        <p class="small muted footer-links"><a href="privacy.html">מדיניות פרטיות</a></p>
       </section>`);
+    if (GOOGLE_CLIENT_ID) this.driveBackend().preload();
+  },
+
+  /** One DriveBackend per page; created on demand so the Google script can be preloaded. */
+  driveBackend() {
+    if (!this.drive || this.drive.clientId !== this.clientId) {
+      this.drive = new DriveBackend({ clientId: this.clientId, folderName: this.config.folderName });
+    }
+    this.drive.folderName = this.config.folderName;
+    return this.drive;
   },
 
   showConnect(error = '') {
+    const backend = this.driveBackend();
+    const account = backend.account;
+    backend.preload();
     this.showScreen(html`
       <section class="card welcome">
         <h1>שיחות אישיות עם תלמידים</h1>
-        <p>הנתונים שמורים ב-Google Drive, בתיקייה <b>${this.config.folderName}</b>.</p>
         ${when(error, html`<p class="error-text">${error}</p>`)}
-        <button class="btn" data-action="app.signIn">התחברות עם Google</button>
-        <p class="small"><a href="#" data-action="welcome.reset">שינוי הגדרות חיבור</a></p>
+        ${
+          account
+            ? html`<button class="btn google-btn" data-action="app.signIn">${googleIcon} המשך בתור ${account.name || account.email}</button>
+                <p class="small muted">${account.email}</p>
+                <p class="small"><a href="#" data-action="app.switchAccount">כניסה עם חשבון אחר</a></p>`
+            : html`<p>הנתונים נשמרים ב-Google Drive שלך, בתיקייה <b>${this.config.folderName}</b>.</p>
+                <button class="btn google-btn" data-action="app.signIn">${googleIcon} התחברות עם Google</button>`
+        }
+        <p class="small muted footer-links">
+          ${when(!GOOGLE_CLIENT_ID, html`<a href="#" data-action="welcome.reset">שינוי הגדרות חיבור</a> · `)}
+          <a href="privacy.html">מדיניות פרטיות</a>
+        </p>
       </section>`);
   },
 
+  switchAccount() {
+    // Unsaved changes belong to the previous account; never restore them into another one.
+    localStorage.removeItem('oneonone.pending');
+    this.driveBackend().forgetAccount();
+    this.connectDrive();
+  },
+
   async connectDrive() {
-    const backend = store.backend?.kind === 'drive' ? store.backend : new DriveBackend({ clientId: this.clientId, folderName: this.config.folderName });
+    const backend = this.driveBackend();
     try {
       this.showScreen(html`<section class="card welcome"><p>מתחבר ל-Google Drive…</p></section>`);
       await backend.signIn();
@@ -210,10 +246,17 @@ const app = {
   async reauthAndSave() {
     try {
       await store.backend.signIn();
-      store.status = 'dirty';
-      await store.flush();
+      this.resumeSaving();
     } catch (e) {
       toast(e.message, 'error');
+    }
+  },
+
+  /** After a fresh token: retry a save that failed for lack of authorization. */
+  resumeSaving() {
+    if (store.status === 'auth') {
+      store.status = 'dirty';
+      store.flush();
     }
   },
 
@@ -232,6 +275,7 @@ const app = {
 
   signOut() {
     store.backend?.signOut();
+    this.drive = null;
     store.backend = null;
     store.data = null;
     this.started = false;
@@ -340,6 +384,10 @@ const app = {
 
   bindEvents() {
     document.addEventListener('click', (ev) => {
+      const b = store.backend;
+      if (b?.kind === 'drive' && this.started && !ev.target.closest('[data-action="app.retrySave"]') && b.refreshIfNeeded()) {
+        b.pending?.promise.then(() => this.resumeSaving()).catch(() => {});
+      }
       const el = ev.target.closest('[data-action]');
       if (!el || el.disabled) return;
       if (el.tagName === 'A' && el.getAttribute('href') === '#') ev.preventDefault();
@@ -431,9 +479,15 @@ const app = {
   },
 };
 
+const googleIcon = html`<svg class="g-icon" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.2l7.8 6.1C12.3 13.6 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.5 5.8c4.4-4 6.8-10 6.8-17.2z"/><path fill="#FBBC05" d="M10.4 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.4 0-11.7-4.1-13.6-9.8l-7.8 6.1C6.6 42.6 14.6 48 24 48z"/></svg>`;
+
 app.main = document.getElementById('main');
 app.bindEvents();
 app.start();
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch((e) => console.warn('service worker registration failed', e));
+}
 
 // Exposed for debugging in the console.
 globalThis.oneOnOne = { app, store, normalizeData };

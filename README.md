@@ -37,17 +37,43 @@ npm test           # בדיקות יחידה
 
 ### פרסום ב-GitHub Pages
 
-ב-GitHub: ‏Settings → Pages → Source: *Deploy from a branch*, בחרו את הענף ואת התיקייה `/ (root)`. האתר יהיה זמין בכתובת `https://<user>.github.io/1-on-1/`.
+כתובת האתר: **https://gilovi.github.io/1-on-1/**
 
-### חיבור ל-Google Drive (פעם אחת)
+ב-GitHub: ‏**Settings → Pages → Build and deployment**: ‏Source: *Deploy from a branch*, ענף `main`, תיקייה `/ (root)`. כל דחיפה ל-`main` מעדכנת את האתר תוך דקה-שתיים.
 
-כדי שהאפליקציה תוכל לשמור ב-Drive צריך מזהה OAuth (Client ID) של Google:
+### התקנה כאפליקציה
 
-1. היכנסו ל-[Google Cloud Console](https://console.cloud.google.com/) וצרו פרויקט חדש.
+האתר הוא PWA – אפשר להתקין אותו כאפליקציה עם אייקון, בלי חנות אפליקציות:
+
+- **אנדרואיד (Chrome)**: תפריט ⋮ → "התקנת האפליקציה" / "הוספה למסך הבית".
+- **אייפון (Safari)**: כפתור השיתוף → "הוספה למסך הבית".
+- **מחשב (Chrome / Edge)**: אייקון ההתקנה בשורת הכתובת.
+
+המסכים נטענים גם ללא חיבור; השמירה ל-Drive דורשת חיבור לאינטרנט.
+
+### הגדרת ההתחברות עם Google (פעם אחת, על ידי מפרסם האפליקציה)
+
+אחרי ההגדרה, משתמשים רק לוחצים "התחברות עם Google". בכניסות הבאות מופיע כפתור "המשך בתור…", שמתחבר בלחיצה אחת בלי מסך אישור. בזמן עבודה, ההרשאה (שתוקפה כשעה) מתחדשת אוטומטית בלחיצה הבאה של המשתמש.
+
+1. ב-[Google Cloud Console](https://console.cloud.google.com/) צרו פרויקט חדש.
 2. ‏**APIs & Services → Library** – הפעילו את **Google Drive API**.
-3. ‏**APIs & Services → OAuth consent screen** – בחרו *External*, מלאו שם אפליקציה ודוא"ל, הוסיפו את ההרשאה `.../auth/drive.file`, ותחת *Test users* הוסיפו את חשבון ה-Google שלכם (או פרסמו את האפליקציה).
-4. ‏**APIs & Services → Credentials → Create credentials → OAuth client ID** – סוג *Web application*. תחת *Authorized JavaScript origins* הוסיפו את כתובת האתר, למשל `https://<user>.github.io` ו-`http://localhost:8080`.
-5. העתיקו את ה-Client ID והדביקו אותו במסך הפתיחה של האפליקציה – או קבעו אותו מראש בקובץ `js/config.js` (`GOOGLE_CLIENT_ID`) כדי שמשתמשים לא יצטרכו להזין אותו.
+3. ‏**Google Auth Platform → Branding** (או *OAuth consent screen*):
+   - App name: ‏`שיחות אישיות`, ‏support email, לוגו (אפשר `icons/icon-512.png`, אחרי ההקטנה ל-120×120).
+   - App home page: ‏`https://gilovi.github.io/1-on-1/`
+   - Privacy policy: ‏`https://gilovi.github.io/1-on-1/privacy.html`
+   - Authorized domains: ‏`gilovi.github.io`
+4. ‏**Audience**: ‏User type *External*.
+5. ‏**Data Access**: הוסיפו רק את ההרשאה `https://www.googleapis.com/auth/drive.file`.
+6. ‏**Clients → Create client** – סוג *Web application*. תחת *Authorized JavaScript origins* הוסיפו `https://gilovi.github.io` (ולפיתוח: `http://localhost:8080`). אין צורך ב-redirect URIs.
+7. העתיקו את ה-Client ID לקובץ `js/config.js`:
+   ```js
+   export const GOOGLE_CLIENT_ID = 'xxxxxxxx.apps.googleusercontent.com';
+   ```
+   (המזהה אינו סוד – מקובל שהוא מופיע בקוד.) דחפו ל-`main`.
+8. **פרסום לכל המשתמשים**: ב-*Audience* לחצו **Publish app** (מעבר מ-*Testing* ל-*In production*). כל עוד האפליקציה במצב *Testing*, רק משתמשים שהוספתם ידנית תחת *Test users* יכולים להתחבר.
+9. **אימות המותג (Brand verification)**: ‏`drive.file` היא הרשאה שאינה רגישה, ולכן לא נדרשת בדיקת אבטחה – רק אימות של שם האפליקציה, הלוגו והדומיין. לפני האימות משתמשים רואים אזהרת "אפליקציה לא מאומתת" (אפשר להמשיך דרך *Advanced*), ויש מגבלה של 100 משתמשים. לאימות:
+   - אמתו בעלות על `https://gilovi.github.io/` ב-[Google Search Console](https://search.google.com/search-console) (נכס מסוג *URL prefix*, שיטת קובץ HTML – הוסיפו את הקובץ שגוגל נותנת לשורש המאגר `gilovi.github.io`, או לחלופין השתמשו בדומיין משלכם).
+   - ב-*Branding* לחצו *Submit for verification*. התהליך לוקח בדרך כלל כמה ימים.
 
 #### איפה נשמרים הנתונים
 
@@ -70,6 +96,8 @@ npm test           # בדיקות יחידה
 | קובץ | תפקיד |
 | --- | --- |
 | `index.html`, `css/styles.css` | מעטפת ועיצוב (RTL, מצב כהה, מותאם לנייד) |
+| `manifest.webmanifest`, `sw.js`, `icons/` | התקנה כאפליקציה (PWA) ועבודה ללא חיבור |
+| `privacy.html` | מדיניות פרטיות (נדרשת לפרסום ההתחברות עם Google) |
 | `js/app.js` | ניתוב, טיפול באירועים, התחברות ל-Drive |
 | `js/store.js` | מצב האפליקציה ושמירה אוטומטית |
 | `js/storage.js` | שמירה ב-Google Drive / בדפדפן |
