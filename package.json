@@ -1,0 +1,11 @@
+{
+  "name": "one-on-one",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ניהול שיחות אישיות של מחנך עם תלמידים, עם שמירה ב-Google Drive",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes http-server -p 8080 -c-1 .",
+    "test": "node --test tests/*.test.js"
+  }
+}
