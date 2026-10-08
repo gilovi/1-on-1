@@ -10,3 +10,11 @@ Taken by the user after reading `2026-10-08-comparison.md`.
    - **UX additions:** needs-attention flag, persistent topic priority, snooze on suggestions, checkup chips and new-topics field in the meeting form, Saturday → Sunday shift on all date inputs, mobile bottom nav / sticky "record meeting".
 3. **Parent meetings do not count** as meeting the student: they're logged but don't reset the "not met lately" clock or the cadence.
 4. **"Delete all data" moves the Drive folder to the trash** (recoverable for 30 days), after a typed confirmation, and clears local data.
+
+## Answers to the hybrid plan's §8 questions
+
+5. **Keep `staleDays`** as a separate class-wide "not met lately" setting.
+6. **Sign-out clears this device's local copy** (after the unsynced-changes check).
+7. **"Once per half-year" goals follow the school halves** (Sep–Jan, Feb–Jun/Aug), not rolling 5-month periods.
+8. **Extra in this round:** restore from the Drive backups list inside the app. Still out of scope: re-import deactivation, the meeting form as a bottom sheet, the median-gap statistic.
+9. Not asked; taking the plan's defaults: needs-attention makes a student eligible today; trial → Drive merges both (with a confirmation).
