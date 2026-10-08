@@ -1,6 +1,7 @@
 import { activeStudents, deleteGoal, getStudent, goalStats, goalStatus } from '../logic.js';
 import { newGoal } from '../model.js';
-import { formValues, html, progressBar, raw, selected, toast, when } from '../ui.js';
+import { formValues, progressBar, toast, when } from '../ui.js';
+import { html, attr } from '../ui/html.js';
 import { emptyState, goalBadges, goalCheckRow, ownerOptions, readRecurrence, recurrenceFields, studentLink } from './common.js';
 
 function goalEditForm(goal) {
@@ -49,7 +50,7 @@ function goalItem(ctx, data, stat) {
                   ${students.map((s) => {
                     const st = goalStatus(data, g, s.id);
                     return html`<li class="${st.overdue ? 'is-overdue' : ''}"><label class="check">
-                      <input type="checkbox" data-change="goal.toggle" data-goal="${g.id}" data-student="${s.id}"${st.done ? raw(' checked') : ''}> ${s.fullName}
+                      <input type="checkbox" data-change="goal.toggle" data-goal="${g.id}" data-student="${s.id}"${attr.bool('checked', st.done)}> ${s.fullName}
                     </label></li>`;
                   })}
                 </ul>
@@ -84,9 +85,9 @@ export function render(ctx) {
         <div class="field-row">
           <label class="field"><span>סוג מטרה</span>
             <select name="scope" data-change="goals.scope">
-              <option value="class"${selected(scope === 'class')}>כיתתית – מטרה לכיתה כולה</option>
-              <option value="everyone"${selected(scope === 'everyone')}>לכל תלמיד – תסומן אצל כל תלמיד בנפרד</option>
-              <option value="student"${selected(scope === 'student')}>אישית – לתלמיד מסוים</option>
+              <option value="class"${attr.bool('selected', scope === 'class')}>כיתתית – מטרה לכיתה כולה</option>
+              <option value="everyone"${attr.bool('selected', scope === 'everyone')}>לכל תלמיד – תסומן אצל כל תלמיד בנפרד</option>
+              <option value="student"${attr.bool('selected', scope === 'student')}>אישית – לתלמיד מסוים</option>
             </select>
           </label>
           ${when(
@@ -95,7 +96,7 @@ export function render(ctx) {
               <label class="field"><span>תלמיד</span>
                 <select name="studentId" required>
                   <option value="">בחרו תלמיד…</option>
-                  ${students.map((s) => html`<option value="${s.id}"${selected(ctx.ui.newGoalStudent === s.id)}>${s.fullName}</option>`)}
+                  ${students.map((s) => html`<option value="${s.id}"${attr.bool('selected', ctx.ui.newGoalStudent === s.id)}>${s.fullName}</option>`)}
                 </select>
               </label>
               <label class="field"><span>של מי</span><select name="owner">${ownerOptions()}</select></label>`,
@@ -129,7 +130,7 @@ export function render(ctx) {
 
     ${when(
       archivedCount,
-      html`<label class="check small"><input type="checkbox" data-change="goals.showArchived"${showArchived ? raw(' checked') : ''}> הצגת מטרות בארכיון (${archivedCount})</label>`,
+      html`<label class="check small"><input type="checkbox" data-change="goals.showArchived"${attr.bool('checked', showArchived)}> הצגת מטרות בארכיון (${archivedCount})</label>`,
     )}`;
 }
 

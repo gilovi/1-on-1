@@ -40,7 +40,7 @@ function loadGIS() {
       const s = document.createElement('script');
       s.src = 'https://accounts.google.com/gsi/client';
       s.async = true;
-      s.onload = () => resolve();
+      s.onload = () => resolve(undefined);
       s.onerror = () => {
         gisPromise = null;
         reject(new Error('טעינת שירותי ההתחברות של Google נכשלה. בדקו את החיבור לאינטרנט.'));
@@ -109,7 +109,7 @@ export class DriveBackend {
             this.token = resp.access_token;
             this.expiresAt = Date.now() + (Number(resp.expires_in) - 60) * 1000;
             localStorage.setItem('oneonone.drive.authorized', '1');
-            p.resolve();
+            p.resolve(undefined);
           }
         },
         error_callback: (err) => {
@@ -185,9 +185,7 @@ export class DriveBackend {
       } catch {
         /* ignore */
       }
-      const err = new Error(`שגיאת Google Drive: ${msg}`);
-      err.status = res.status;
-      throw err;
+      throw Object.assign(new Error(`שגיאת Google Drive: ${msg}`), { status: res.status });
     }
     return res;
   }

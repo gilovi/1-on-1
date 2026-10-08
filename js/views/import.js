@@ -1,6 +1,7 @@
 import { mergeStudents } from '../model.js';
 import { parseNameList, parseVCF } from '../vcf.js';
-import { formValues, html, readFileText, toast, when } from '../ui.js';
+import { formValues, readFileText, toast, when } from '../ui.js';
+import { html } from '../ui/html.js';
 
 function parseAny(text, filename = '') {
   if (/\.vcf$/i.test(filename) || /BEGIN:VCARD/i.test(text)) return parseVCF(text);
@@ -79,7 +80,7 @@ export const handlers = {
   },
   'import.selectAll'(ctx, el) {
     document.querySelectorAll('.import-list input[type=checkbox]').forEach((cb) => {
-      cb.checked = el.dataset.value === '1';
+      /** @type {HTMLInputElement} */ (cb).checked = el.dataset.value === '1';
     });
   },
   'import.cancel'(ctx) {

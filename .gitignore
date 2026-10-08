@@ -1,4 +1,4 @@
 node_modules/
 *.vcf
-!tests/fixtures/*.vcf
+!js/fixtures/*.vcf
 .DS_Store

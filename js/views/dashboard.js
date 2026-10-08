@@ -1,6 +1,7 @@
 import { formatDate, relativeDay, today, weekdayName } from '../dates.js';
 import { classGoals, getStudent, goalStats, meetingStats, staleStudents, suggestMeetings, activeStudents } from '../logic.js';
-import { html, percent, progressBar, when, toast } from '../ui.js';
+import { percent, progressBar, when, toast } from '../ui.js';
+import { html } from '../ui/html.js';
 import { emptyState, goalBadges, goalCheckRow, studentLink } from './common.js';
 
 const KIND_LABELS = {

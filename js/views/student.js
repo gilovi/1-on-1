@@ -4,7 +4,8 @@ import {
   addTopic, deleteMeeting, getStudent, goalStatus, goalsForStudent, lastMeetingDate, recordMeeting,
   reorderTopic, setTopicDone, studentDueDate, studentFrequency, studentMeetings, studentTopics,
 } from '../logic.js';
-import { formValues, html, raw, selected, toast, when } from '../ui.js';
+import { formValues, toast, when } from '../ui.js';
+import { html, attr } from '../ui/html.js';
 import { dateLabel, emptyState, goalCheckRow, ownerOptions, readRecurrence, recurrenceFields } from './common.js';
 
 function contactCard(s) {
@@ -48,7 +49,7 @@ function meetingForm(data, s, ref) {
         <div class="field-row">
           <label class="field"><span>תאריך</span><input type="date" name="date" value="${ref}" required max="${addDays(ref, 1)}"></label>
           <label class="field"><span>סוג המפגש</span>
-            <select name="type">${Object.entries(MEETING_TYPES).map(([k, v]) => html`<option value="${k}"${selected(k === (hasCheckupToday ? 'checkup' : 'regular'))}>${v}</option>`)}</select>
+            <select name="type">${Object.entries(MEETING_TYPES).map(([k, v]) => html`<option value="${k}"${attr.bool('selected', k === (hasCheckupToday ? 'checkup' : 'regular'))}>${v}</option>`)}</select>
           </label>
         </div>
         <label class="field"><span>סיכום המפגש</span>
@@ -109,8 +110,8 @@ function scheduleCard(data, s, ref) {
       <label class="field inline">
         <span>תדירות מפגשים</span>
         <select data-change="student.frequency">
-          <option value=""${selected(!s.frequencyDays)}>ברירת המחדל של הכיתה (${frequencyLabel(Number(data.settings.defaultFrequencyDays))})</option>
-          ${FREQUENCY_PRESETS.map((p) => html`<option value="${p.days}"${selected(s.frequencyDays === p.days)}>${p.label}</option>`)}
+          <option value=""${attr.bool('selected', !s.frequencyDays)}>ברירת המחדל של הכיתה (${frequencyLabel(Number(data.settings.defaultFrequencyDays))})</option>
+          ${FREQUENCY_PRESETS.map((p) => html`<option value="${p.days}"${attr.bool('selected', s.frequencyDays === p.days)}>${p.label}</option>`)}
           ${when(s.frequencyDays && !freqIsPreset, html`<option value="${s.frequencyDays}" selected>${frequencyLabel(freq)}</option>`)}
         </select>
       </label>
@@ -170,8 +171,8 @@ function topicsCard(ctx, data, s) {
                       <span class="drag-handle" title="גררו לשינוי הסדר" aria-hidden="true">⋮⋮</span>
                       <label class="check grow"><input type="checkbox" data-change="student.topicDone" data-id="${t.id}"> <span>${t.text}</span></label>
                       <span class="row-actions">
-                        <button class="icon-btn" data-action="student.topicMove" data-id="${t.id}" data-to="${i - 1}"${when(i === 0, raw(' disabled'))} title="העלאה" aria-label="העלאה">▲</button>
-                        <button class="icon-btn" data-action="student.topicMove" data-id="${t.id}" data-to="${i + 1}"${when(i === open.length - 1, raw(' disabled'))} title="הורדה" aria-label="הורדה">▼</button>
+                        <button class="icon-btn" data-action="student.topicMove" data-id="${t.id}" data-to="${i - 1}"${attr.bool('disabled', i === 0)} title="העלאה" aria-label="העלאה">▲</button>
+                        <button class="icon-btn" data-action="student.topicMove" data-id="${t.id}" data-to="${i + 1}"${attr.bool('disabled', i === open.length - 1)} title="הורדה" aria-label="הורדה">▼</button>
                         <button class="icon-btn" data-action="student.editTopic" data-id="${t.id}" title="עריכה" aria-label="עריכה">✎</button>
                         <button class="icon-btn" data-action="student.deleteTopic" data-id="${t.id}" title="מחיקה" aria-label="מחיקה">✕</button>
                       </span>
@@ -207,7 +208,7 @@ function goalsCard(ctx, data, s) {
       ${group('המטרות שלי מול התלמיד', teacher)}
       ${group('המטרות של התלמיד', student)}
       ${group('מטרות לכל התלמידים', general)}
-      <details class="add-goal"${when(ctx.ui.addGoalOpen, raw(' open'))}>
+      <details class="add-goal"${attr.bool('open', ctx.ui.addGoalOpen)}>
         <summary>הוספת מטרה אישית</summary>
         <form data-form="student.addGoal">
           <div class="field-row">
@@ -236,7 +237,7 @@ function meetingsCard(ctx, data, s) {
                     <form data-form="student.saveMeeting" data-id="${m.id}">
                       <div class="field-row">
                         <label class="field"><span>תאריך</span><input type="date" name="date" value="${m.date}" required></label>
-                        <label class="field"><span>סוג</span><select name="type">${Object.entries(MEETING_TYPES).map(([k, v]) => html`<option value="${k}"${selected(k === m.type)}>${v}</option>`)}</select></label>
+                        <label class="field"><span>סוג</span><select name="type">${Object.entries(MEETING_TYPES).map(([k, v]) => html`<option value="${k}"${attr.bool('selected', k === m.type)}>${v}</option>`)}</select></label>
                       </div>
                       <label class="field"><span>סיכום</span><textarea name="summary" rows="6">${m.summary}</textarea></label>
                       <div class="form-actions">
@@ -369,7 +370,7 @@ export const handlers = {
     if (!v.text.trim()) return;
     ctx.store.update((data) => addTopic(data, ctx.params.id, v.text, { urgent: v.urgent }));
     form.reset();
-    document.querySelector('[data-form="student.addTopic"] input[name=text]')?.focus();
+    /** @type {HTMLElement | null} */ (document.querySelector('[data-form="student.addTopic"] input[name=text]'))?.focus();
   },
   'student.topicDone'(ctx, el) {
     ctx.store.update((data) => setTopicDone(data, el.dataset.id, el.checked));
@@ -380,7 +381,7 @@ export const handlers = {
   'student.editTopic'(ctx, el) {
     ctx.ui.editTopic = el.dataset.id;
     ctx.rerender();
-    document.querySelector('.topic.editing input')?.focus();
+    /** @type {HTMLElement | null} */ (document.querySelector('.topic.editing input'))?.focus();
   },
   'student.cancelTopic'(ctx) {
     ctx.ui.editTopic = null;

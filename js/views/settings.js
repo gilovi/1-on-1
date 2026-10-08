@@ -1,6 +1,7 @@
 import { today } from '../dates.js';
 import { FREQUENCY_PRESETS } from '../model.js';
-import { checked, downloadFile, formValues, html, readFileText, selected, toast, when } from '../ui.js';
+import { downloadFile, formValues, readFileText, toast, when } from '../ui.js';
+import { html, attr } from '../ui/html.js';
 
 const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -16,7 +17,7 @@ export function render(ctx) {
         <div class="field-row">
           <label class="field"><span>תדירות מפגש לכל תלמיד (ברירת מחדל)</span>
             <select name="defaultFrequencyDays">
-              ${FREQUENCY_PRESETS.map((p) => html`<option value="${p.days}"${selected(Number(settings.defaultFrequencyDays) === p.days)}>${p.label}</option>`)}
+              ${FREQUENCY_PRESETS.map((p) => html`<option value="${p.days}"${attr.bool('selected', Number(settings.defaultFrequencyDays) === p.days)}>${p.label}</option>`)}
             </select>
           </label>
           <label class="field"><span>"לא נפגשו לאחרונה" – אחרי כמה ימים</span><input type="number" min="1" max="365" name="staleDays" value="${settings.staleDays}"></label>
@@ -27,7 +28,7 @@ export function render(ctx) {
         </div>
         <fieldset><legend>ימי פעילות</legend>
           <div class="days">${DAYS.map(
-            (d, i) => html`<label class="check"><input type="checkbox" name="workdays" value="${i}" data-group${checked(settings.workdays.includes(i))}> ${d}</label>`,
+            (d, i) => html`<label class="check"><input type="checkbox" name="workdays" value="${i}" data-group${attr.bool('checked', settings.workdays.includes(i))}> ${d}</label>`,
           )}</div>
         </fieldset>
         <button class="btn" type="submit">שמירת הגדרות</button>

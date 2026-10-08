@@ -3,7 +3,8 @@ import { toggleGoal } from './logic.js';
 import { normalizeData } from './model.js';
 import { DriveBackend, LocalStorageBackend } from './storage.js';
 import { store } from './store.js';
-import { html, toast, when } from './ui.js';
+import { toast, when } from './ui.js';
+import { clearHTML, html, setHTML } from './ui/html.js';
 import * as dashboard from './views/dashboard.js';
 import * as goals from './views/goals.js';
 import * as importView from './views/import.js';
@@ -75,9 +76,9 @@ const commonHandlers = {
   },
   'welcome.drive'(ctx, form) {
     const v = Object.fromEntries(new FormData(form));
-    const clientId = (v.clientId || GOOGLE_CLIENT_ID || '').trim();
+    const clientId = String(v.clientId || GOOGLE_CLIENT_ID || '').trim();
     if (!clientId) return;
-    app.saveConfig({ mode: 'drive', clientId, folderName: (v.folderName || DEFAULT_FOLDER_NAME).trim() });
+    app.saveConfig({ mode: 'drive', clientId, folderName: String(v.folderName || DEFAULT_FOLDER_NAME).trim() });
     app.connectDrive();
   },
 };
@@ -147,9 +148,9 @@ const app = {
   },
 
   showScreen(content) {
-    document.getElementById('nav').innerHTML = '';
-    document.getElementById('save-status').innerHTML = '';
-    this.main.innerHTML = String(content);
+    clearHTML(document.getElementById('nav'));
+    clearHTML(document.getElementById('save-status'));
+    setHTML(this.main, content);
   },
 
   showWelcome() {
@@ -308,7 +309,8 @@ const app = {
   renderNav(active) {
     const cls = store.data.settings.className;
     document.getElementById('class-name').textContent = cls ? `· ${cls}` : '';
-    document.getElementById('nav').innerHTML = String(
+    setHTML(
+      document.getElementById('nav'),
       html`${NAV.map((n) => html`<a href="${n.href}" class="${n.id === active ? 'active' : ''}"${n.id === active ? html` aria-current="page"` : ''}>${n.label}</a>`)}`,
     );
   },
@@ -328,7 +330,7 @@ const app = {
         <button class="link-btn" data-action="app.conflictReload">טעינה מחדש</button> /
         <button class="link-btn" data-action="app.conflictOverwrite">שמירת הגרסה שלי</button></span>`,
     };
-    el.innerHTML = String(map[s] || '');
+    setHTML(el, map[s] || html``);
   },
 
   render({ keepFocus = false } = {}) {
@@ -343,14 +345,14 @@ const app = {
 
     // Preserve open <details>, focus and caret across re-renders of the same page.
     const openDetails = sameRoute ? [...this.main.querySelectorAll('details')].map((d) => d.open) : null;
-    const active = document.activeElement;
+    const active = /** @type {HTMLInputElement | null} */ (document.activeElement);
     const focusKey = keepFocus && active?.dataset?.input;
     const caret = focusKey ? [active.selectionStart, active.selectionEnd] : null;
 
     this.renderNav(route.nav);
     this.renderStatus();
     const ctx = this.ctx(route.params, route.query);
-    this.main.innerHTML = String(route.view.render(ctx));
+    setHTML(this.main, route.view.render(ctx));
     document.title = `${route.title} · שיחות אישיות`;
 
     if (openDetails) {
@@ -385,33 +387,33 @@ const app = {
   bindEvents() {
     document.addEventListener('click', (ev) => {
       const b = store.backend;
-      if (b?.kind === 'drive' && this.started && !ev.target.closest('[data-action="app.retrySave"]') && b.refreshIfNeeded()) {
+      if (b?.kind === 'drive' && this.started && !/** @type {HTMLElement} */ (ev.target).closest('[data-action="app.retrySave"]') && b.refreshIfNeeded()) {
         b.pending?.promise.then(() => this.resumeSaving()).catch(() => {});
       }
-      const el = ev.target.closest('[data-action]');
-      if (!el || el.disabled) return;
+      const el = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (ev.target).closest('[data-action]'));
+      if (!el || el.hasAttribute('disabled')) return;
       if (el.tagName === 'A' && el.getAttribute('href') === '#') ev.preventDefault();
       this.handle(el.dataset.action, el, ev);
     });
     document.addEventListener('submit', (ev) => {
-      const form = ev.target.closest('form[data-form]');
+      const form = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (ev.target).closest('form[data-form]'));
       if (!form) return;
       ev.preventDefault();
       this.handle(form.dataset.form, form, ev);
     });
     document.addEventListener('change', (ev) => {
-      const el = ev.target.closest('[data-change]');
+      const el = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (ev.target).closest('[data-change]'));
       if (el) this.handle(el.dataset.change, el, ev);
     });
     document.addEventListener('input', (ev) => {
-      const el = ev.target.closest('[data-input]');
+      const el = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (ev.target).closest('[data-input]'));
       if (el) this.handle(el.dataset.input, el, ev);
     });
 
     // Drag & drop reordering of topics.
     let dragId = null;
     document.addEventListener('dragstart', (ev) => {
-      const li = ev.target.closest?.('[data-topic]');
+      const li = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (ev.target).closest?.('[data-topic]'));
       if (!li) return;
       dragId = li.dataset.topic;
       li.classList.add('dragging');
@@ -419,17 +421,17 @@ const app = {
       ev.dataTransfer.setData('text/plain', dragId);
     });
     document.addEventListener('dragover', (ev) => {
-      const li = ev.target.closest?.('[data-topic]');
+      const li = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (ev.target).closest?.('[data-topic]'));
       if (!dragId || !li) return;
       ev.preventDefault();
       document.querySelectorAll('.drop-target').forEach((x) => x.classList.remove('drop-target'));
       if (li.dataset.topic !== dragId) li.classList.add('drop-target');
     });
     document.addEventListener('drop', (ev) => {
-      const li = ev.target.closest?.('[data-topic]');
+      const li = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (ev.target).closest?.('[data-topic]'));
       if (!dragId || !li) return;
       ev.preventDefault();
-      const ids = [...li.parentElement.querySelectorAll('[data-topic]')].map((x) => x.dataset.topic);
+      const ids = [...li.parentElement.querySelectorAll('[data-topic]')].map((x) => /** @type {HTMLElement} */ (x).dataset.topic);
       const to = ids.indexOf(li.dataset.topic);
       const id = dragId;
       dragId = null;

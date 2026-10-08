@@ -170,7 +170,7 @@ function cardToContact(props) {
 
 /** Parse a .vcf file's text into a list of contacts. */
 export function parseVCF(text) {
-  const lines = unfold(text.replace(/^﻿/, ''));
+  const lines = unfold(text.replace(/^FEFF/, ''));
   const contacts = [];
   let current = null;
   for (const raw of lines) {
@@ -195,7 +195,7 @@ export function parseVCF(text) {
 /** Parse a plain list (one student per line, optionally "שם פרטי,שם משפחה" or CSV with a header). */
 export function parseNameList(text) {
   const lines = text
-    .replace(/^﻿/, '')
+    .replace(/^FEFF/, '')
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);

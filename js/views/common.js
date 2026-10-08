@@ -1,7 +1,8 @@
 import { formatDate, relativeDay, today } from '../dates.js';
 import { FREQUENCY_PRESETS, GOAL_OWNERS, GOAL_SCOPES, frequencyLabel } from '../model.js';
 import { goalStatus } from '../logic.js';
-import { html, raw, selected, checked, when } from '../ui.js';
+import { when } from '../ui.js';
+import { html, attr } from '../ui/html.js';
 
 export function studentLink(s) {
   return s ? html`<a href="#/student/${s.id}" class="student-link">${s.fullName}</a>` : html`<span class="muted">תלמיד שנמחק</span>`;
@@ -15,6 +16,10 @@ export function dateLabel(iso, { relative = true, weekday = false } = {}) {
   )}</span>`;
 }
 
+/**
+ * @param {unknown} text
+ * @param {unknown} [action]
+ */
 export function emptyState(text, action = '') {
   return html`<div class="empty">${text}${action ? html`<div class="empty-action">${action}</div>` : ''}</div>`;
 }
@@ -28,22 +33,22 @@ export function recurrenceFields(goal = {}) {
       <label class="field">
         <span>סוג</span>
         <select name="recurring" data-change="ui.toggleRecurrence">
-          <option value="no"${selected(!goal.recurring)}>חד פעמית</option>
-          <option value="yes"${selected(goal.recurring)}>חוזרת</option>
+          <option value="no"${attr.bool('selected', !goal.recurring)}>חד פעמית</option>
+          <option value="yes"${attr.bool('selected', goal.recurring)}>חוזרת</option>
         </select>
       </label>
-      <label class="field only-recurring"${when(!goal.recurring, raw(' hidden'))}>
+      <label class="field only-recurring"${attr.bool('hidden', !goal.recurring)}>
         <span>תדירות</span>
         <select name="everyPreset" data-change="ui.toggleCustomFreq">
-          ${FREQUENCY_PRESETS.map((p) => html`<option value="${p.days}"${selected(isPreset && every === p.days)}>${p.label}</option>`)}
-          <option value="custom"${selected(!isPreset)}>מותאם אישית…</option>
+          ${FREQUENCY_PRESETS.map((p) => html`<option value="${p.days}"${attr.bool('selected', isPreset && every === p.days)}>${p.label}</option>`)}
+          <option value="custom"${attr.bool('selected', !isPreset)}>מותאם אישית…</option>
         </select>
       </label>
-      <label class="field only-custom"${when(!goal.recurring || isPreset, raw(' hidden'))}>
+      <label class="field only-custom"${attr.bool('hidden', !goal.recurring || isPreset)}>
         <span>כל כמה ימים</span>
         <input type="number" name="everyCustom" min="1" max="365" value="${every}">
       </label>
-      <label class="field only-once"${when(goal.recurring, raw(' hidden'))}>
+      <label class="field only-once"${attr.bool('hidden', goal.recurring)}>
         <span>תאריך יעד (רשות)</span>
         <input type="date" name="dueDate" value="${goal.dueDate || ''}">
       </label>
@@ -81,7 +86,7 @@ export function goalCheckRow(data, goal, studentId, { showBadges = true, showDes
   return html`
     <li class="goal-check ${st.done ? 'is-done' : ''} ${st.overdue ? 'is-overdue' : ''} ${goal.recurring ? 'recurring' : ''}">
       <label class="check">
-        <input type="checkbox" data-change="goal.toggle" data-goal="${goal.id}" data-student="${studentId ?? ''}"${checked(st.done)}>
+        <input type="checkbox" data-change="goal.toggle" data-goal="${goal.id}" data-student="${studentId ?? ''}"${attr.bool('checked', st.done)}>
         <span class="goal-title">${goal.title}</span>
       </label>
       ${when(showBadges, html`<span class="badges">${goalBadges(goal)}</span>`)}
@@ -91,7 +96,7 @@ export function goalCheckRow(data, goal, studentId, { showBadges = true, showDes
 }
 
 export function ownerOptions(current = 'teacher') {
-  return Object.entries(GOAL_OWNERS).map(([k, label]) => html`<option value="${k}"${selected(current === k)}>${label}</option>`);
+  return Object.entries(GOAL_OWNERS).map(([k, label]) => html`<option value="${k}"${attr.bool('selected', current === k)}>${label}</option>`);
 }
 
 export { today };

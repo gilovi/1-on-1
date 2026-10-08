@@ -1,7 +1,8 @@
 import { today } from '../dates.js';
 import { mergeStudents } from '../model.js';
 import { lastMeetingDate, openGoalsCount, studentDueDate, studentTopics } from '../logic.js';
-import { formValues, html, toast, when } from '../ui.js';
+import { formValues, toast, when } from '../ui.js';
+import { html } from '../ui/html.js';
 import { dateLabel, emptyState } from './common.js';
 
 export function render(ctx) {

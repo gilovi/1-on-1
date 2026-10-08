@@ -1,11 +1,10 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { emptyData, mergeStudents, newGoal, normalizeData } from '../js/model.js';
+import { test, assert } from 'vitest';
+import { emptyData, mergeStudents, newGoal, normalizeData } from './model.js';
 import {
   addTopic, goalStats, goalStatus, recordMeeting, reorderTopic, staleStudents,
   studentTopics, suggestMeetings, toggleGoal, setTopicDone, lastMeetingDate,
-} from '../js/logic.js';
-import { addDays, nextWorkday, weekday } from '../js/dates.js';
+} from './logic.js';
+import { addDays, nextWorkday, weekday } from './dates.js';
 
 const REF = '2026-10-06'; // a Tuesday
 
@@ -23,14 +22,14 @@ test('mergeStudents adds new students and updates existing ones by name', () => 
     { fullName: 'יוסף לוי' },
   ]);
   assert.deepEqual(r, { added: 1, updated: 1 });
-  assert.equal(data.students.length, 2);
-  assert.equal(data.students[0].notes, 'הערה');
-  assert.equal(data.students[0].email, 'a@b.c');
+  assert.strictEqual(data.students.length, 2);
+  assert.strictEqual(data.students[0].notes, 'הערה');
+  assert.strictEqual(data.students[0].email, 'a@b.c');
 });
 
 test('normalizeData fills in defaults for older documents', () => {
   const d = normalizeData({ students: [{ id: 'x', fullName: 'א ב', firstName: 'א', lastName: 'ב' }] });
-  assert.equal(d.settings.defaultFrequencyDays, 30);
+  assert.strictEqual(d.settings.defaultFrequencyDays, 30);
   assert.deepEqual(d.students[0].checkups, []);
   assert.deepEqual(d.topics, []);
 });
@@ -46,7 +45,7 @@ test('topics: add, urgent add, reorder and mark done', () => {
   assert.deepEqual(studentTopics(data, sid).open.map((t) => t.text), ['ב', 'דחוף', 'א']);
   setTopicDone(data, c.id, true, REF);
   assert.deepEqual(studentTopics(data, sid).open.map((t) => t.text), ['ב', 'א']);
-  assert.equal(studentTopics(data, sid).done[0].id, c.id);
+  assert.strictEqual(studentTopics(data, sid).done[0].id, c.id);
   setTopicDone(data, c.id, false);
   assert.deepEqual(studentTopics(data, sid).open.map((t) => t.text), ['ב', 'א', 'דחוף']);
   assert.ok(a);
@@ -57,12 +56,12 @@ test('one-time goal status and toggle', () => {
   const sid = data.students[0].id;
   const g = newGoal({ title: 'x', scope: 'student', studentId: sid, createdAt: REF, dueDate: '2026-10-01' });
   data.goals.push(g);
-  assert.equal(goalStatus(data, g, sid, REF).overdue, true);
+  assert.strictEqual(goalStatus(data, g, sid, REF).overdue, true);
   toggleGoal(data, g.id, sid, REF);
-  assert.equal(goalStatus(data, g, sid, REF).done, true);
+  assert.strictEqual(goalStatus(data, g, sid, REF).done, true);
   toggleGoal(data, g.id, sid, REF);
-  assert.equal(goalStatus(data, g, sid, REF).done, false);
-  assert.equal(data.goalCompletions.length, 0);
+  assert.strictEqual(goalStatus(data, g, sid, REF).done, false);
+  assert.strictEqual(data.goalCompletions.length, 0);
 });
 
 test('recurring goal becomes due again after its period', () => {
@@ -75,15 +74,15 @@ test('recurring goal becomes due again after its period', () => {
     { done: goalStatus(data, g, sid, '2026-09-20').done, overdue: goalStatus(data, g, sid, '2026-09-20').overdue },
     { done: false, overdue: false },
   );
-  assert.equal(goalStatus(data, g, sid, REF).overdue, true);
+  assert.strictEqual(goalStatus(data, g, sid, REF).overdue, true);
   toggleGoal(data, g.id, sid, '2026-09-10');
-  assert.equal(goalStatus(data, g, sid, '2026-09-20').done, true);
-  assert.equal(goalStatus(data, g, sid, '2026-10-10').done, false);
-  assert.equal(goalStatus(data, g, sid, '2026-10-10').nextDue, '2026-10-10');
+  assert.strictEqual(goalStatus(data, g, sid, '2026-09-20').done, true);
+  assert.strictEqual(goalStatus(data, g, sid, '2026-10-10').done, false);
+  assert.strictEqual(goalStatus(data, g, sid, '2026-10-10').nextDue, '2026-10-10');
   // unchecking a recurring goal only removes the current period completion
   toggleGoal(data, g.id, sid, '2026-10-12');
   toggleGoal(data, g.id, sid, '2026-10-12');
-  assert.equal(data.goalCompletions.length, 1);
+  assert.strictEqual(data.goalCompletions.length, 1);
 });
 
 test('class goals have a single class-wide target', () => {
@@ -92,8 +91,8 @@ test('class goals have a single class-wide target', () => {
   data.goals.push(g);
   toggleGoal(data, g.id, null, REF);
   const stats = goalStats(data, REF);
-  assert.equal(stats.perGoal[0].targets, 1);
-  assert.equal(stats.perGoal[0].done, 1);
+  assert.strictEqual(stats.perGoal[0].targets, 1);
+  assert.strictEqual(stats.perGoal[0].done, 1);
 });
 
 test('recordMeeting applies its side effects', () => {
@@ -105,12 +104,12 @@ test('recordMeeting applies its side effects', () => {
   s.nextMeeting = { date: REF, time: '', note: '' };
   s.checkups.push({ id: 'c1', date: '2026-10-05', note: '', done: false }, { id: 'c2', date: '2026-11-01', note: '', done: false });
   recordMeeting(data, { studentId: s.id, date: REF, summary: ' סיכום ', topicIds: [t.id], goalIds: [g.id], nextDate: '2026-11-03' });
-  assert.equal(data.meetings[0].summary, 'סיכום');
-  assert.equal(studentTopics(data, s.id).open.length, 0);
-  assert.equal(goalStatus(data, g, s.id, REF).done, true);
+  assert.strictEqual(data.meetings[0].summary, 'סיכום');
+  assert.strictEqual(studentTopics(data, s.id).open.length, 0);
+  assert.strictEqual(goalStatus(data, g, s.id, REF).done, true);
   assert.deepEqual(s.nextMeeting, { date: '2026-11-03', time: '', note: '' });
   assert.deepEqual(s.checkups.map((c) => c.done), [true, false]);
-  assert.equal(lastMeetingDate(data, s.id, REF), REF);
+  assert.strictEqual(lastMeetingDate(data, s.id, REF), REF);
 });
 
 test('suggestMeetings spreads unscheduled students by capacity, skipping Saturdays', () => {
@@ -124,17 +123,17 @@ test('suggestMeetings spreads unscheduled students by capacity, skipping Saturda
 
   const items = suggestMeetings(data, REF, 20);
   const byStudent = (id) => items.filter((i) => i.studentId === id);
-  assert.equal(byStudent(s2.id).length, 2);
-  assert.equal(byStudent(s1.id)[0].date, nextWorkday(addDays('2026-10-01', 30), data.settings.workdays));
+  assert.strictEqual(byStudent(s2.id).length, 2);
+  assert.strictEqual(byStudent(s1.id)[0].date, nextWorkday(addDays('2026-10-01', 30), data.settings.workdays));
 
   const perDay = {};
   for (const i of items) perDay[i.date] = (perDay[i.date] || 0) + 1;
   for (const [day, n] of Object.entries(perDay)) {
     assert.ok(n <= 2, `${day} has ${n}`);
-    assert.notEqual(weekday(day), 6, 'no meetings on Saturday');
+    assert.notStrictEqual(weekday(day), 6, 'no meetings on Saturday');
   }
   // never-met students are suggested starting today
-  assert.equal(items[0].date, REF);
+  assert.strictEqual(items[0].date, REF);
   // sorted by date
   assert.deepEqual(items.map((i) => i.date), [...items.map((i) => i.date)].sort());
 });
@@ -146,5 +145,5 @@ test('staleStudents lists never-met first then the longest gap', () => {
   recordMeeting(data, { studentId: b.id, date: '2026-10-01' });
   const stale = staleStudents(data, REF);
   assert.deepEqual(stale.map((x) => x.student.id), [c.id, a.id]);
-  assert.equal(stale[1].days, 66);
+  assert.strictEqual(stale[1].days, 66);
 });

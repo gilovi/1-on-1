@@ -1,43 +1,11 @@
-// Tiny templating + UI helpers. All interpolated values are HTML-escaped unless wrapped with raw().
+// Non-templating UI helpers (templating lives in ui/html.js).
 
-class Raw {
-  constructor(s) {
-    this.s = s;
-  }
-  toString() {
-    return this.s;
-  }
-}
-
-export const raw = (s) => new Raw(String(s));
-
-export function esc(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-}
-
-function fmt(v) {
-  if (v === null || v === undefined || v === false) return '';
-  if (v instanceof Raw) return v.s;
-  if (Array.isArray(v)) return v.map(fmt).join('');
-  return esc(v);
-}
-
-export function html(strings, ...values) {
-  let out = '';
-  strings.forEach((s, i) => {
-    out += s;
-    if (i < values.length) out += fmt(values[i]);
-  });
-  return new Raw(out);
-}
+import { html } from './ui/html.js';
 
 export const when = (cond, a, b = '') => {
   const v = cond ? a : b;
   return typeof v === 'function' ? v() : v;
 };
-
-export const selected = (cond) => (cond ? raw(' selected') : '');
-export const checked = (cond) => (cond ? raw(' checked') : '');
 
 export function percent(r) {
   return r === null || r === undefined ? '—' : `${Math.round(r * 100)}%`;
