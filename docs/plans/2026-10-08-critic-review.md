@@ -197,3 +197,38 @@ Most of the plan holds up. I checked its claims about the code and they are accu
 - **Migrated recurring goals (M10):** count adherence for periods before the migration, which will show retroactive "missed" periods, or only from the migration date on?
 - **Deleting a student:** should it win over concurrent offline edits (sticky delete)? I recommend yes for minors' data.
 - **Rollout:** is a feature-flag canary on your own account acceptable before v2 sync goes live for everyone?
+
+---
+
+# Round 2: re-review of the revised plan (2026-10-09)
+
+## Verdict: partly ready
+qa can start on **P0, P2, P3, P4 and P5** now. **P1** can start once two morph ACs are added (M-A). **P6 and everything after it are still blocked**: the merge design (§3.2) has four defects that can lose data silently or let devices diverge.
+
+**Status of earlier findings:**
+- Resolved in the text: B2 (mostly; see M-B), B3, B4, M1, M2, M4–M8, M10 (except W4), M11–M13, m1–m11.
+- Resolved, but with a new problem: M3 (see m-1) and M9 (see B-4).
+- B1 only partly fixed (see B-1, B-2).
+
+## Blockers (all in §3.2, gating P6+)
+- **B-1. Ancestry rule 1 compares order, not identity.** An offline device's edit (B1@09:00, base T0) is treated as an ancestor of A2 (base A1@10:00) and silently lost. Fix: rule 1 is an exact match, `(loser.updatedAt, loser.by) === winner.base`; keep rule 2 (same device, same base). The same order-based test in the sticky-delete rule must change too. AC: this scenario gives 1 conflict.
+- **B-2. The form-base check makes notes autosave log false conflicts** after the first save. Fix: after each successful save, the draft's base becomes the version just written (or skip when `current.by === deviceId` and bases match). AC: 3 autosaves in a row → 0 conflicts.
+- **B-3. Sticky delete isn't transitive** (tombstone@8, restore@9 with base=T, offline edit@10 with base@3 → different merge orders give different results). Fix: a total order with a per-student `epoch` (restore increments it; compare `(epoch, tombstone-before-live, updatedAt, by, canonical)`). AC: the three-version case gives the same result in all orders.
+- **B-4. Expiring conflicts by `loser.updatedAt`** deletes the lost text of a device that was offline for over 30 days before the user sees it. Fix: don't auto-expire undismissed conflicts (or expire 30 days after first shown, tracked in device-local meta). Fix AC-M13 accordingly.
+
+## Major
+- **M-A. Positional morph matching** can attach typed text to the wrong meeting when a remote meeting is inserted above an open edit form. Fix: preserve a focused/dirty control only if its nearest keyed or `data-draft` ancestor has the same identity; require `data-key` on all repeated items and `data-id` forms (with a test that walks the views). Also let `<details>` close when the markup explicitly drops `open` and it has no dirty control.
+- **M-B. Discovery runs only at boot, but AC-L5 expects it on every sync.** Fix: run the list on every sync, throttled to once per 10 minutes, plus ~30 s after a first-run create; align §3.4 and AC-L5.
+- **M-C. AC-Z1 ("every AC-CH test passes on v2") contradicts intended changes** (calendar vs rolling goal status, ★ priority, Saturday meeting dates, phone display). Fix: seed AC-CH from v1 JSON fixtures (the v2 harness runs `migrateV1`); list intended divergences in §6, each with an explicit v2 variant in its own commit; write AC-CH green on current code before the morph lands.
+- **M-D. AC-W4 contradicts §2.1** (partially covered periods). Fix: half-open `[from, to)` spans, one counting rule, consistent in §2.1 and W4.
+
+## Minor
+1. Shared mode: keep the doc + dirty flag in `sessionStorage` (survives reload, gone on tab close); `prompt:'select_account'`; help text to also sign out of Google; don't write `oneonone.drive.authorized`.
+2. Upgrade-month period: start counting from the first period beginning on/after `countFrom` (or count the straddling period only if done).
+3. `remote-missing` dialog: don't default to "שחזר מהאשפה"; say "ייתכן שנמחק ממכשיר אחר"; legacy lookup requires `trashed=false` on folder and file.
+4. Clear `data-dirty` when the saved value equals the control's value.
+5. Document that canary rollback and re-enable loses v1 edits to existing entities.
+6. Split P8c for review: sync core vs lifecycle.
+
+## Checked and consistent
+Recomputed AC-F1, H4, U4, Q6, N6, MIG4/7/8/9, W5, B54; the CSP string (incl. `oauth2.googleapis.com/revoke`), gen/locks (AC-Y5), account check, `supersededBy`, backup copies tagged `kind:'backup'`, restore base, tombstone allowlist, per-key settings, phase dependencies and `V2_MODE`.
