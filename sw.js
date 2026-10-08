@@ -2,7 +2,7 @@
 // Network-first for the app's own files, so a new deploy is picked up on the next load while online.
 // Google APIs and sign-in are never cached.
 
-const CACHE = 'one-on-one-v1';
+const CACHE = 'one-on-one-v2';
 const SHELL = [
   './',
   'index.html',
@@ -17,6 +17,7 @@ const SHELL = [
   'js/storage.js',
   'js/store.js',
   'js/ui.js',
+  'js/ui/html.js',
   'js/vcf.js',
   'js/views/common.js',
   'js/views/dashboard.js',
@@ -28,6 +29,9 @@ const SHELL = [
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
+  'icons/apple-touch-icon.png',
+  'icons/maskable-512.png',
+  'icons/maskable.svg',
 ];
 
 self.addEventListener('install', (event) => {
