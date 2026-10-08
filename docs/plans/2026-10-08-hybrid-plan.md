@@ -1,102 +1,137 @@
-# Hybrid rebuild plan: "1-on-1" (2026-10-08)
+# Hybrid rebuild plan: "1-on-1" (v2, revised 2026-10-09)
 
-> Produced by the **architect** agent with full code context, from `2026-10-08-decisions.md`, `2026-10-08-architect-plan.md` and `2026-10-08-comparison.md`. Saved verbatim; pending review by the critic and the user's answers to §8.
+This file replaces `docs/plans/2026-10-08-hybrid-plan.md`.
+
+It addresses `2026-10-08-critic-review.md` and the decisions in `2026-10-08-decisions.md` items 5–15, which are binding.
+
+## Changes from v1 of this plan
+
+| ID | Finding | Resolution |
+|---|---|---|
+| B1 | Merge logged false conflicts | **Critic's fix, refined.** Each entity carries `base` (the `{updatedAt, by}` it was edited from, unchanged across unsynced local edits). A loser counts as an *ancestor* when it is ≤ `winner.base`, or when it comes from the same device with the same base. Forms also send their opening `base`, so overwriting an unseen remote change is still logged (§3.2). New ACs are AC-M7–M10. |
+| B2 | Discovery split the data across two files and caused false `remote-deleted` | **Critic's fix.** Every boot sync lists the data files and picks a deterministic winner (oldest `createdTime`, then id). Losers are merged, then trashed with `supersededBy`. A trashed cached file or a 404 runs discovery first. `remote-missing` is declared only when no live data file exists. The `everSynced=false` case is defined. ACs: AC-L5 and AC-L6. |
+| B3 | Backups inherited `kind:'data'` | **Critic's fix.** Every copy sets `appProperties.kind='backup'` explicitly. Discovery also ignores files whose parents include the backups folder. The fake Drive models inheritance. The behaviour is checked against the real API in the P8c canary checklist. AC: AC-S50. |
+| B4 | Autosave re-render dropped focus and the keyboard | **Better fix: a DOM morph replaces `innerHTML` swaps** (§1.2). The focused element and dirty controls are never replaced or overwritten, so autosave, remote updates and local actions keep focus, caret and the keyboard. AC-F5 now asserts `activeElement` and `selectionStart`. |
+| M1 | The sync's write wasn't atomic | Every IDB doc write, including the end of a sync, runs under the `doc:` lock and bumps `meta.gen`. Dispatch compares `gen`. AC: AC-Y5. |
+| M2 | A token could belong to the wrong account | After every grant, `about.permissionId` is checked before any Drive call. On a mismatch, sync stops and the app never merges across accounts. AC: AC-Y6. |
+| M3 | Offline-first opening on shared computers | Per decision 10, a "מחשב משותף" checkbox at sign-in gives a memory-only doc and session-only drafts, with nothing in IDB or localStorage. AC: AC-Y7. |
+| M4 | Sign-out and delete-all could lose data or leave it behind | Sign-out always runs a full pull-merge-push and then re-reads the version. Other tabs are told via broadcast and `versionchange`/`onblocked` are handled. `one-on-one:local` is deleted after the trial → Drive merge. ACs: AC-Z6 and AC-Z7. |
+| M5 | Deferred renders swallowed taps; stale dirty forms blocked updates | **Removed by the morph.** There is no deferral and no `isEditing` gate: unchanged buttons are never replaced, so taps land. Drafts are flushed on `pagehide`/`hidden`. AC: AC-F9. |
+| M6 | P3 depended on P4 | `periods()` and `periodKeyFor()` move into P3. P4 keeps status, adherence and stats. |
+| M7 | P8 was too large and unsafe | P1 adds DOM-level characterization tests for every v1 handler, and they are re-run against v2. **The v2 app sits behind `V2_MODE` (off / canary / on)**, so everything merged to `main` is safe. P8 is split into P8a, P8b and P8c. P11 deletes v1 later. |
+| M8 | CSP gaps | The exact CSP is in §4.1, including `https://oauth2.googleapis.com/revoke`. E2e ignores the known GIS inline-style violation. |
+| M9 | Tombstones and conflicts kept personal data | Tombstones use an **allowlist** of kept keys. Deletes cascade to conflicts. Dismissing a conflict tombstones it. Conflicts expire after 30 days. **Students use sticky delete** (decision 14), and children of a deleted student are tombstoned on normalization. AC: AC-M11. |
+| M10 | Migration correctness | Priority inference is dropped (all topics become `normal`); the `order:0` case is ambiguous. `activeFrom` = min(createdAt, first meeting, first completion), and it never changes after that. Reactivation uses `inactiveSpans`. **Adherence for migrated goals counts from the upgrade date (`countFrom`)**, per decision 11. MIG7 and MIG8 are rewritten. |
+| M11 | Checkup closing was a behaviour change | Ported as in v1: any counted (non-parent) meeting closes due checkups. |
+| M12 | Legacy catch-up worked on only one device | `legacy` lives in the v2 doc, so it is synced. Catch-up is add-only and stops after 30 days, followed by the scrub. The marker-doc idea was weighed and rejected (§3.6). |
+| M13 | `remote-deleted` was dangerous after an accidental trash | The state is now `remote-missing`, with "שחזר מהאשפה" (untrash). "מחק גם מהמכשיר הזה" asks for confirmation. A 404 runs discovery. |
+| m1 | Q6/U4 contradiction | Per decision 13, the meeting date may be a Saturday. The shift applies only to `input[data-no-saturday]`. Q6 and U4 are fixed. |
+| m2 | H3/H4 not testable | Both rewritten. |
+| m3 | Empty `workdays` | Falls back to Sun–Fri, and the walk is capped at 3650 days. |
+| m4 | P0 typecheck fails on empty dirs | `tsconfig.strict.json` lands in P3 with the first files. |
+| m5 | P2 shape mismatch | A `contacts→phones` display adapter is added for v1. The change to `vcf.test.js` is an explicit, separate commit. |
+| m6 | Drafts | Moved to IDB in v2. Cleared on sign-out from P1. Checkbox restore semantics are defined, and stale ids are ignored. |
+| m7 | iOS storage eviction | `navigator.storage.persist()`, plus a badge warning when edits stay unsynced for more than 24 h. |
+| m8 | `settings` as one LWW entity | Settings become **one entity per key**. |
+| m9 | Conflict stamps and restore bursts | Conflict stamps come only from the inputs. A restore sets `base` = the current version, so it produces no conflicts. |
+| m10 | `next:{sid}` overwrite | Documented in §8 risk 8. |
+| m11 | Notices ack copy | Moot: notices move to P8c, which writes straight to settings. |
+| Cut | Trim P2 | Adopted. Auth mapping, sign-out/disconnect and notices move to P8c. |
+| Decisions | 7, 8, 12, 14 | School-half unit; restore from the Drive backups list; canary switch; scrub ~30 days after migration. |
+
+---
 
 ## 0. Context
 
-**What I read:**
-- The decisions doc, the blind architect plan and the comparison doc.
-- All of `js/` (`app.js`, `store.js`, `storage.js`, `model.js`, `logic.js`, `dates.js`, `vcf.js`, `ui.js`, `config.js`, `views/*`).
-- `tests/*`, `index.html`, `sw.js`, `manifest.webmanifest`, `privacy.html`, `package.json` and `.gitignore`.
+**What I read:** the decisions doc, the blind plan, the comparison doc, the critic review, all of `js/`, `tests/`, `index.html`, `sw.js`, `package.json`, `.gitignore` and the README. Pages deploys from `main` (README line 42).
 
-**Facts from the code that shape this plan:**
-- **The focus-reload bug is real and easy to explain.** `app.js` has a `window 'focus'` handler. It reloads from Drive whenever `store.status === 'saved'` and the remote version has changed. Typing in the meeting-form `<textarea>` never touches the store; it only changes on submit. So the status is still `saved`, `reloadFromBackend()` → `emit()` → `render()` runs, and `this.main.innerHTML = …` wipes the half-typed summary. The student-notes textarea has the same problem: it saves only on `change`.
-- **Data model today.**
-  - Settings: `className, defaultFrequencyDays(30), staleDays, meetingsPerDay, suggestionsCount, workdays`.
-  - Collections: `students[]` (with embedded `nextMeeting{date,time,note}` and `checkups[]`), `goals[]` (`recurring`, `everyDays`, `archived`), `goalCompletions[]` (random ids, `studentId|null`, `date`, `meetingId`), `meetings[]`, `topics[]` (integer `order`, `done`).
-  - **There is no `parent` meeting type.** The current types are `regular`, `checkup`, `discipline`, `academic` and `other`, so `parent` must be added.
-- **Rendering.** Every view returns an escaped `html```. `app.js` writes it to `innerHTML` in 6 places.
-  - `raw()` is used only for boolean attributes (`checked`, `disabled`, `hidden`, `open`, `selected`).
-  - The only inline `style=` is `progressBar` in `ui.js:50`, which a strict CSP would block.
-- **Drive.** Discovery is by folder name (configurable) plus `one-on-one-data.json`. Backups are re-uploaded into `גיבויים/backup-YYYY-MM-DD.json`. `ensureFolder()` **recreates the folder if it was trashed**, which would resurrect data after a delete-all. `about` doesn't fetch `permissionId`.
-- **Sign-out** revokes the token and doesn't clear local data.
-- **Fonts and offline.** Rubik is loaded from Google Fonts. The SW is network-first with a hand-kept `SHELL` list. Trial mode keeps data in localStorage (`oneonone.data`), and unsaved Drive edits go to `oneonone.pending`.
-- **Tooling.** There is only `node --test tests/*.test.js` (13 tests). `.gitignore` ignores `*.vcf` except `tests/fixtures/*.vcf`, so it must change when the fixtures move.
+**Key code facts (verified by the critic):**
+- The focus handler (`app.js:466-478`) reloads whenever `status==='saved'`, and textareas don't touch the store until submit. That combination wipes typed text.
+- There are 6 `innerHTML` writes and only one `style=` (`ui.js:50`).
+- `raw()` is used only for boolean attributes.
+- `ensureFolder` recreates a trashed folder.
+- There is no `parent` meeting type.
+- v1 closes due checkups on any meeting type.
 
-**Goal:** keep every screen, feature and the look. Replace the data layer (schema v2, IndexedDB per account, merge-based sync, calendar recurrence) and close the gaps from the decisions doc.
+**Goal:** keep the screens and the look. Rebuild the data layer (schema v2, IDB per account, merge sync, calendar recurrence), close the gaps from the decisions doc, and keep every commit on `main` safe for real users.
 
 ---
 
 ## 1. Target module layout
 
-The approach is a strangler. The new pure modules are built next to the old ones while the app keeps running on the old ones. One cutover phase (P8) switches the app over and deletes `model.js`, `logic.js`, `store.js` and `storage.js`.
+Old and new code coexist. The v1 tree stays live, apart from the P1/P2 fixes, until P11. The v2 tree is reachable only through `V2_MODE`. Modules shared by both trees are marked **(shared)**.
 
 | Current | Target | Fate |
 |---|---|---|
-| `js/app.js` (boot, router, events, render, focus handler) | `js/main.js` (side-effect entry), `js/app.js` (exports `createApp({root, store, auth})`, router, event delegation), `js/ui/renderScheduler.js` (render guard), `js/ui/shell.js` (nav, bottom nav, status badge, banners) | Refactored. The entry is split out so app.js can be tested in happy-dom. |
-| `js/config.js` | Same file, plus `SCHEMA_VERSION=2`, `APP_ID`, `DATA_FILE_V2='one-on-one-data-v2.json'`, `LEGACY_DATA_FILE`, retention constants | Kept |
-| `js/dates.js` | `js/domain/dates.js` (`addDays`, `diffDays`, `weekday`, `weekStart`, `monthStart`, `addMonths`, `shiftOffSaturday`, `nextWorkday`) and `js/ui/format.js` (`formatDate`, `formatHebrewDate`, `relativeDay`, `weekdayName`) | Split |
-| `js/model.js` | `js/domain/schema.js` (factories, `emptyDoc`, `validateDoc`, `CONTENT_FIELDS`), `js/domain/ids.js`, `js/ui/labels.js` (`MEETING_TYPES` + `parent`, `GOAL_SCOPES`, `GOAL_OWNERS`, frequency presets) | Replaced |
-| `js/logic.js` | `js/domain/tx.js` (copy-on-write transaction plus stamping), `actions.js`, `selectors.js`, `cadence.js`, `recurrence.js`, `stats.js`, `suggestions.js` | Replaced; existing behaviour is ported |
-| (none) | `js/domain/merge.js`, `js/domain/migrate.js`, `js/domain/migrateV1.js` | Added |
-| `js/vcf.js` | `js/import/vcard.js` (names, plus phones only when `includePhones`), `js/import/nameList.js`, `js/import/names.js` (normalize) | Refactored |
-| `js/store.js` | `js/app/store.js` (`dispatch(action, payload)` → pure action → IDB write → broadcast → schedule sync → notify `{reason}`) | Replaced |
-| `js/storage.js` | `js/storage/idb.js`, `js/storage/accountStore.js` (doc, meta, drafts per account), `js/sync/auth.js` (GIS, `mapAuthError`), `js/sync/drive.js` (REST), `js/sync/discovery.js` (v2 + legacy), `js/sync/syncEngine.js`, `js/sync/backups.js` (`retentionPlan`), `js/sync/locks.js` (`navigator.locks` with an in-memory fallback) | Replaced |
-| `js/ui.js` | `js/ui/html.js` (`html`, `attr.bool`, `setHTML` sink; `raw` not exported), `js/ui/toast.js`, `js/ui/forms.js`, `js/ui/drafts.js`, `js/ui/i18n.js` (auth and notice strings) | Split |
-| `js/views/*` | The same 7 views, ported to selectors/actions. Notices are added as a dashboard card in `views/notices.js`. | Kept, with the look unchanged |
-| `tests/*.test.js`, `tests/fixtures/sample.vcf` | `js/**/X.test.js` next to code, `js/import/fixtures/sample.vcf`, `e2e/` (Playwright, `fakeDrive.js`, `fakeGis.js`) | Moved. `.gitignore` exception becomes `!js/import/fixtures/*.vcf`. |
-| (none) | `package.json` scripts, `tsconfig.json` (all of `js/`, non-strict), `tsconfig.strict.json` (`domain/`, `import/`, `storage/`, `sync/`; strict), `js/types.d.ts`, `eslint.config.js`, `vitest.config.js`, `playwright.config.js`, `.github/workflows/check.yml`, `fonts/` (Rubik woff2 + OFL.txt) | Added |
+| `js/app.js` (boot, router, events, render) | v1: `js/app.js` exports `createApp()`; `js/main.js` is the entry. v2: `js/app/boot.js`, `js/app/router.js`, `js/app/store.js` (dispatch) | v1 refactored minimally in P1. v2 added in P8. |
+| (none) | `js/main.js` **(shared)**: reads `V2_MODE` from `config.js` and `localStorage['oneonone.canary']`, then dynamically imports the v1 or v2 app | Added in P1 (v1 only), switch added in P8a |
+| `js/config.js` | Adds `V2_MODE='off'`, `SCHEMA_VERSION=2`, `APP_ID`, `DATA_FILE_V2='one-on-one-data-v2.json'`, `LEGACY_DATA_FILE`, retention and scrub constants | Kept |
+| `js/ui.js` | `js/ui/html.js` **(shared)**: `html`, `attr.bool`, private `raw`, `parseSafe()` (the single sink). `js/ui/morph.js` **(shared)**. `js/ui/drafts.js` **(shared)**. `js/ui/dateInput.js` **(shared)**. `js/ui/toast.js`, `forms.js`, `format.js`, `i18n.js` | Split |
+| `js/dates.js`, `model.js`, `logic.js`, `store.js`, `storage.js`, `views/*` | Stay as the v1 tree | **Deleted in P11** |
+| (none) | `js/domain/`: `dates`, `ids`, `schema` (factories, `KEEP_ON_TOMBSTONE`, `validateDoc`), `tx`, `selectors`, `cadence`, `periods`, `recurrence`, `stats`, `suggestions`, `actions`, `merge`, `migrate`, `migrateV1` | Added in P3–P6 |
+| `js/vcf.js` | `js/import/vcard.js`, `nameList.js`, `names.js` **(shared)** | P2. v1 gets a `contacts→phones` adapter. |
+| (none) | `js/storage/`: `idb.js`, `accountStore.js` (IDB), `memoryStore.js` (shared-computer mode), `locks.js` | Added in P7 |
+| (none) | `js/sync/`: `auth.js` (with `mapAuthError`), `drive.js`, `discovery.js`, `syncEngine.js`, `backups.js` (`ensureDaily`, `retentionPlan`, `scrubPlan`, list and restore) | Added in P7 |
+| (none) | `js/ui/views/*` (the v2 views, copied from `js/views/*` and ported) and `js/ui/views/notices.js` | Added in P8a/b. The copy is temporary until P11. |
+| `tests/*` | `js/**/*.test.js` next to the code; `js/import/fixtures/sample.vcf`; `js/domain/fixtures/v1-sample.json`; `js/views/*.char.test.js` (characterization tests, run against both trees); `e2e/` | Moved in P0 |
+| (none) | `package.json` scripts, `tsconfig.json` (non-strict, all of `js/`), `tsconfig.strict.json` (P3+), `js/types.d.ts`, `eslint.config.js`, `vitest.config.js` (`pool:'forks'`, `env.TZ='Asia/Jerusalem'`), `playwright.config.js`, `.github/workflows/check.yml`, `fonts/` | Added |
 
 **Scripts:**
-- `typecheck`: `tsc -p tsconfig.json && tsc -p tsconfig.strict.json`
+- `typecheck`: `tsc -p tsconfig.json`, extended to `&& tsc -p tsconfig.strict.json` from P3
 - `lint`: `eslint . --max-warnings 0`
-- `test`: `vitest run` (with `pool: 'forks'` and `env: {TZ: 'Asia/Jerusalem'}`)
+- `test`: `vitest run`
 - `e2e`: `playwright test`
-- `check`: typecheck + lint + test
+- `check`: all of the above except e2e
 
-**Dev dependencies:** `typescript`, `eslint`, `@eslint/js`, `globals`, `vitest`, `happy-dom`, `fake-indexeddb`, `fast-check`, `@playwright/test`. None of them ship to the site.
+**CI** (`check.yml`): Node 22, `npm ci`, `npm run check`. From P10 there is also an e2e job with Chromium.
 
-**CI:** `check.yml` runs on push and PR with Node 22: `npm ci` then `npm run check`. A second job runs `npx playwright install chromium` then `npm run e2e`, starting from P10.
-
-**ESLint rules (beyond recommended):**
-- `no-restricted-properties`: bans `innerHTML`, `outerHTML` and `insertAdjacentHTML`. The single sink file `js/ui/html.js` is exempted through a config override, not inline disables.
-- `no-restricted-syntax`:
-  - `TemplateElement[value.raw=/style\s*=/]`, so no inline style attributes in templates;
-  - `CallExpression[callee.name='eval']`.
+**ESLint** (as in v1 of this plan):
+- `no-restricted-properties` bans `innerHTML`, `outerHTML` and `insertAdjacentHTML` everywhere except through an override for `js/ui/html.js`.
+- `no-restricted-syntax` bans `style=` inside template literals.
 - `no-restricted-imports`:
-  - `js/domain/**` and `js/import/**` can't import from `ui/`, `storage/`, `sync/` or `app/`;
-  - nothing outside `ui/html.js` can import `raw`.
-- Globals: `serviceworker` for `sw.js`, `node` for config files and tests.
+  - `raw` can only be imported in `ui/html.js`;
+  - `domain/` and `import/` can't import from `ui/`, `storage/`, `sync/` or `app/`;
+  - the v2 tree can't import the v1 modules (`model`, `logic`, `store`, `storage`, `views/`).
 
-### Rendering decision: keep `html```, make it a guarded sink (no `h()` migration)
+`.gitignore` gets `!js/import/fixtures/*.vcf`.
 
-| | Keep escaping `html``` + guarded sink | Migrate to `h()` builder |
+### 1.1 Rendering: keep `html```
+
+The escaping template stays. `parseSafe(safeHtml)` is the only place HTML is parsed, through a `<template>`. It throws on anything that isn't `SafeHtml`. An XSS test renders every view with hostile strings. The `h()` rewrite and Trusted Types are rejected, for the same reasons as v1 of this plan.
+
+### 1.2 Typing safety: morph instead of a render scheduler (resolves B4 and M5)
+
+| | Render scheduler with deferral (v1 of this plan) | DOM morph (chosen) |
 |---|---|---|
-| Diff size | ~30 lines (`setHTML`, `attr.bool`, remove `raw`) | Rewrite ~1,200 lines of templates across 7 views |
-| XSS safety | By construction for text. The only bypass (`raw`) becomes private, `setHTML` throws on anything but `SafeHtml`, lint bans other sinks, and an XSS test renders every view with hostile strings | By construction |
-| Focus/typing loss | Not fixed by either. Needs a render guard plus drafts anyway. | Same |
-| Risk to "keep the look" | None | High: markup drift, regressions |
+| Typing during a remote update | Deferred, with a banner | Applied immediately; the field being typed in is untouched |
+| Autosave while typing (B4) | Needs `source` special-casing | Natural: the focused node is kept |
+| Swallowed taps (M5) | Real risk | Unchanged nodes are kept, so clicks land |
+| Abandoned dirty draft | Blocks updates | Dirty controls keep their value; everything else updates |
+| `<details>`, focus and caret hacks in `render()` | Kept | Deleted |
+| Cost | ~60 lines | ~150 lines plus `data-key` on repeated items |
 
-**Decision:** keep the template.
-- `setHTML(el, SafeHtml)` is the only `innerHTML` write in the codebase.
-- `attr.bool(name, cond)` replaces every `raw(' checked')`-style use.
-- `href` values never interpolate free user text: they're ids, digit-only phones or Drive ids. A test asserts phones are normalized to `[+\d]`.
-- **Trusted Types: considered and rejected for now.** The GIS library and the dynamic `<script src>` load would need TT policies. Breaking sign-in isn't worth it when the lint guard and XSS test already cover the sink.
+**`morph(target, safeHtml)` (`ui/morph.js`):**
+- Parse the new markup with `parseSafe`, then reconcile the children.
+- **Matching:**
+  - match by `data-key` when present;
+  - otherwise match the same `tagName` at the same unkeyed position;
+  - otherwise replace.
+- **Attributes** are synced, except that existing `<details open>` is never closed.
+- **Form controls** (`input`, `textarea`, `select`):
+  - If the element is `document.activeElement` or has `dataset.dirty === '1'`, leave its `value`/`checked`/`selected` alone.
+  - Otherwise, set the properties from the new markup.
+- A delegated `input` listener sets `data-dirty` on the control. It is cleared on successful submit, reset or route change.
+- **A route change does a full replace**, not a morph. Draft forms then refill from drafts.
+- **Known limit:** reordering keyed nodes can move the focused node and blur it. That only happens for a remote topic reorder while a topic is being edited, which is accepted (§8).
 
-### Typing-loss fix (applies to both the bug and the design)
-
-**1. Render scheduler (`ui/renderScheduler.js`).** Store notifications carry a `reason`: `'local' | 'remote' | 'status'`.
-- `'status'` re-renders only the badge.
-- `'remote'` covers sync merges, other-tab broadcasts and legacy catch-up. If `isEditing(main)` is true, the render is deferred: a small banner says "עודכנו נתונים ממכשיר אחר – יוצגו בסיום העריכה" and the render runs on the next `submit`, `cancel` or `focusout` that leaves no editing element. `isEditing` is true when:
-  - `document.activeElement` is an `input`/`textarea`/`select` inside `#main` (excluding checkboxes and search), **or**
-  - any `form[data-draft]` has `data-dirty`.
-- `'local'` (the user's own click) renders immediately. Open draft forms are refilled from the in-memory draft cache, so a topic tick doesn't wipe the meeting form.
-
-**2. Drafts (`ui/drafts.js`).**
-- Forms marked `data-draft="meeting:new:{sid}" | "meeting:edit:{mid}" | "notes:{sid}" | "topic:edit:{tid}"`.
-- On every `input`, the draft goes into an in-memory map and, debounced by 300 ms, to the storage adapter. That adapter is localStorage in P1 and the IDB `drafts` store from P8.
-- Drafts are restored when the form renders and deleted after the action succeeds.
-- Student notes also save on a debounced `input`, not only on `change`.
+**Drafts (`ui/drafts.js`):**
+- Keys: `meeting:new:{sid}`, `meeting:edit:{mid}`, `notes:{sid}` and `topic:edit:{tid}`.
+- Each draft is `{fields, base, savedAt}`.
+- Checkbox groups are stored as arrays of the checked values; absent means unchecked. On restore, ids that are no longer offered are ignored.
+- On `input`, the draft is written to an in-memory map and, debounced by 300 ms, to the adapter. The adapter is localStorage in v1 and IDB `drafts` (or `sessionStorage` in shared mode) in v2.
+- Drafts are flushed on `pagehide` and `visibilitychange:hidden`.
+- They are deleted on submit success, on cancel and on sign-out.
+- Student notes autosave via a debounced `input`. The focused textarea survives thanks to the morph.
 
 ---
 
@@ -104,409 +139,438 @@ The approach is a strangler. The new pure modules are built next to the old ones
 
 ### 2.1 Shape (`schemaVersion: 2`)
 
-- **Collections are maps keyed by id.**
-- **Every entity carries common fields:** `id`, `createdAt`, `updatedAt` (ISO ms), `by` (deviceId) and `deletedAt` (null or ISO).
-- **Tombstones** strip the fields in `CONTENT_FIELDS[collection]`: names, notes, contacts, summary, text, title, description, note and reason.
-- **`updatedAt` is generated** as `max(now, meta.maxSeen + 1ms)`.
+Collections are maps keyed by id. Every entity has these common fields:
 
 ```
-{ app:'one-on-one', schemaVersion:2, createdAt,
-  settings: { id:'settings', updatedAt, by, defaultFrequencyDays, staleDays, meetingsPerDay,
-              suggestionsCount, workdays /*0..5, Saturday never*/, activeClassId,
-              noticesAck:{privacy:null|ISO, reporting:null|ISO} },
-  classes:  { [id]: { name, schoolName, archived } },
-  students: { [id]: { classId, firstName, lastName, fullName, notes, cadenceDays:null|n,
-              needsAttention:{flag:false, reason:''}, snoozedUntil:null|LocalDate,
-              contacts:null|{studentCell?, motherPhone?, fatherPhone?},
-              active, activeFrom, inactiveFrom, source:{kind, externalKey} } },
-  meetings: { [id]: { studentId, date, type:'regular'|'checkup'|'discipline'|'academic'|'parent'|'other',
-              summary, topicIdsDone:[], completionIds:[] } },
-  planned:  { ['next:'+studentId | uuid]: { studentId, kind:'next'|'checkup', date, time, note,
-              status:'planned'|'done'|'cancelled', linkedMeetingId } },
-  topics:   { [id]: { studentId, text, order /*float*/, priority:'high'|'normal',
-              status:'open'|'done', doneAt, doneInMeetingId } },
-  goals:    { [id]: { title, description, scope:'student'|'everyone'|'class', owner, classId, studentId,
-              kind:'once'|'recurring', rules:[{from, unit:'week'|'month', every}],
-              startDate, endDate, dueDate, archived } },
-  completions: { [`${goalId}:${subject}:${periodKey}`]: { goalId, subject /*studentId|'class'*/,
-              periodKey /*period start | 'once'*/, completedOn, meetingId, note } },
-  conflicts: { [`${coll}:${entityId}:${field}:${loserUpdatedAt}:${loserBy}`]:
-              { coll, entityId, field, lostText, lostUpdatedAt, lostBy, dismissedAt } } }
+id, createdAt, updatedAt /*ISO ms*/, by /*deviceId*/,
+base /*{updatedAt, by} | null*/, deletedAt /*null | ISO*/
 ```
 
-**Deviations from the blind plan, and why:**
-- **The planned `next` has the deterministic id `next:{studentId}`.** There is one per student by construction, so the blind plan's "two live next" normalization (AC-M37) goes away.
-- **`time`/`note` on planned items are kept.** That's an existing feature.
-- **Existing meeting types are kept**, and `parent` is added.
-- **`archived` is kept**, matching the current goals UI.
-- **`staleDays` and `meetingsPerDay` are kept**, because current features depend on them.
-- **`conflicts` is a map of entities**, so it merges like everything else (dismiss is LWW).
-- **Protected text fields** are `meetings.summary` and `students.notes`.
+A **tombstone keeps only the allowlisted keys**: the common keys plus `KEEP_ON_TOMBSTONE[coll]`:
 
-### 2.2 `migrateV1(v1, {deviceId}) → {doc, report}`: pure and deterministic
+| Collection | Extra keys kept on a tombstone |
+|---|---|
+| students | `classId` |
+| meetings, planned, topics | `studentId` (planned also keeps `kind`) |
+| goals | `scope`, `classId`, `studentId` |
+| completions | `goalId`, `subject`, `periodKey` |
+| conflicts | `coll`, `entityId`, `field` |
 
-Determinism matters because two devices may migrate the same v1 file independently, and they must produce identical docs. So:
-- ids are derived from v1 data, never random;
-- timestamps come from the data, never from `Date.now()`;
-- `by` = `'migration-v1'`;
-- every entity gets `updatedAt` = `v1.updatedAt` (the file-level value). `createdAt` = the v1 `createdAt` if it's ISO, else `${date}T00:00:00.000Z`.
+```
+settings:  { [key]: { value } }   // one entity per key: defaultFrequencyDays, staleDays, meetingsPerDay,
+                                   // suggestionsCount, workdays, activeClassId, noticesAck.privacy,
+                                   // noticesAck.reporting, legacy
+classes:   { [id]: { name, schoolName, archived } }
+students:  { [id]: { classId, firstName, lastName, fullName, notes, cadenceDays|null,
+             needsAttention:{flag, reason}, snoozedUntil|null, contacts|null /*studentCell,motherPhone,fatherPhone*/,
+             active, activeFrom /*immutable*/, inactiveSpans:[{from, to|null}], source:{kind, externalKey} } }
+meetings:  { [id]: { studentId, date /*Saturday allowed*/, type:'regular'|'checkup'|'discipline'|'academic'|'parent'|'other',
+             summary, topicIdsDone[], completionIds[] } }
+planned:   { ['next:'+sid | uuid]: { studentId, kind:'next'|'checkup', date /*never Saturday*/, time, note,
+             status:'planned'|'done'|'cancelled', linkedMeetingId } }
+topics:    { [id]: { studentId, text, order, priority:'high'|'normal', status:'open'|'done', doneAt, doneInMeetingId } }
+goals:     { [id]: { title, description, scope, owner, classId, studentId, kind:'once'|'recurring',
+             rules:[{from, unit:'week'|'month'|'half', every}], startDate, endDate, dueDate /*never Saturday*/,
+             countFrom|null, archived } }
+completions: { [`${goalId}:${subject}:${periodKey}`]: { goalId, subject, periodKey, completedOn, meetingId, note } }
+conflicts: { [`${coll}:${entityId}:${field}:${lost.updatedAt}:${lost.by}`]: { coll, entityId, field, lostText } }
+```
+
+**Field rules:**
+- The `legacy` setting holds `{fileId, folderId, migratedAt, catchUpUntil, scrubbedAt}`.
+- **`unit:'half'`** (decision 7) has periods Sep 1–Jan 31 and Feb 1–Aug 31, and `every` must be 1.
+- **`activeFrom` never changes after creation.** Period keys are clipped only by `goal.startDate`, the rule segment and `activeFrom`, so keys stay stable. Periods entirely inside `inactiveSpans`, or ending before `countFrom`, are *not counted*. Deactivating a student opens a span; reactivating closes it.
+- Protected text fields (they can produce conflicts) are `meetings.summary` and `students.notes`.
+
+### 2.2 `migrateV1(v1, {today}) → {doc, report}`
+
+The migration is pure and deterministic. It never uses random ids or `Date.now()`. Every entity gets `updatedAt = v1.updatedAt`, `by = 'migration-v1'`, `base = null`.
 
 | v1 | v2 |
 |---|---|
-| `settings.className` | `classes['class-1'] = {name}`, `settings.activeClassId='class-1'`, and every student gets `classId='class-1'` |
-| other settings | copied. `workdays` loses 6 (Saturday). |
-| student `phones[]` | `contacts`:<br>• label `נייד` / CELL → `studentCell`<br>• `אמא` / `Mother` → `motherPhone`<br>• `אבא` / `Father` → `fatherPhone`<br>• the first match wins per key<br>• **all other labels (בית, עבודה, ראשי, טלפון, custom) are dropped**<br>• `null` if nothing maps |
-| `email`, `address`, `org` | **dropped** (`org` goes to `classes.schoolName` only if every student shares it) |
+| `settings.className` | `classes['class-1']`; `activeClassId = 'class-1'` |
+| other settings | One entity per key. `workdays` drops 6; if the result is empty it becomes `[0..5]`. |
+| `phones[]` | `contacts` from the labels `נייד`/CELL, `אמא`/Mother and `אבא`/Father (the first match wins). **Every other phone is dropped, and so are `email`, `address` and `org`.** |
 | `frequencyDays` | `cadenceDays` |
-| `createdAt` (LocalDate) | `activeFrom` |
-| `active:false` | `inactiveFrom` = the migration's `v1.updatedAt` date |
-| `nextMeeting{date,time,note}` | `planned['next:'+sid]`, status `planned`, `date = shiftOffSaturday(date)` |
-| `checkups[]` | `planned[c.id]` kind `checkup`; `done` maps to `done` with `linkedMeetingId=c.meetingId`; Saturday shifted |
-| topics | `status` from `done`. `order`: open topics per student are ranked by v1 order and set to `1024·rank`. `priority='high'` iff v1 `order < 1`, because only the "urgent" add produces it and any reorder renumbers to 1..n, so there are no false positives. `meetingId` → `doneInMeetingId` |
-| meetings | `type` kept. `topicIdsDone` = topics with `meetingId == m.id`. `completionIds` is filled below. |
-| goal `recurring:false` | `kind:'once'`, `rules:[]` |
-| goal `recurring:true, everyDays:N` | `kind:'recurring'`, `rules=[{from:startDate, …map(N)}]`:<br>• presets: 7→week/1, 14→week/2, 30→month/1, 60→month/2, 90→month/3, 150→month/5<br>• custom N<28 → week/max(1,round(N/7)), else month/max(1,round(N/30))<br>• non-preset goals are listed in `report.approximatedGoals` |
-| goal `createdAt` | `startDate` = min(`createdAt`, earliest completion date for that goal) |
-| completion `{goalId, studentId, date, meetingId}` | `subject = studentId ?? 'class'`. `periodKey` = 'once' for one-time goals, or the key of the v2 period containing `date` (§5.1). id = `goal:subject:periodKey`. When several v1 completions land on one id, **the earliest `date` wins**; the others are counted in `report.collapsedCompletions`. Each source meeting still lists the surviving id in `completionIds`, so "goals achieved in this meeting" still shows. Orphans (goal or student missing) are dropped and counted. |
+| `createdAt` | `activeFrom = min(createdAt, first meeting date, first completion date)`. If `createdAt` is missing, use the other two, or else the date of `v1.updatedAt`. |
+| `active:false` | `inactiveSpans = [{from: date(v1.updatedAt), to: null}]` |
+| `nextMeeting` | `planned['next:'+sid]` with the date shifted off Saturday |
+| `checkups[]` | `planned[c.id]` with the date shifted off Saturday; `done` with `linkedMeetingId` |
+| topics | **`priority = 'normal'` for all** (M10). The open order is re-ranked to `1024·rank`. |
+| meetings | `type` kept; `topicIdsDone`; `completionIds` |
+| goal recurring `everyDays` | Presets: 7→week/1, 14→week/2, 30→month/1, 60→month/2, 90→month/3, **150→half/1**. Custom N<28 → week/round(N/7), otherwise month/round(N/30), both with a minimum of 1. Custom goals go into `report.approximatedGoals`. |
+| goal recurring | **`countFrom = today`** (the upgrade date, decision 11). `startDate = min(createdAt, first completion)`. |
+| completions | id `goal:subject:periodKey` (`subject` is the studentId, or `'class'`). If several land on one id, the earliest wins and the rest go to `report.collapsedCompletions`. Every source meeting keeps the surviving id. Orphans are dropped and counted. |
+| (doc) | `settings.legacy = {fileId, folderId, migratedAt: today, catchUpUntil: today+30, scrubbedAt: null}` (only from Drive) |
 
-**Effect of the rolling → calendar change:** a monthly goal ticked on Oct 30 used to read "done until Nov 29". It now reads October done and November pending. After the first migration, a one-time notice explains this and lists `report.approximatedGoals`.
-
-`migrate(doc)` is the router:
-- v1, or no `schemaVersion` with `students` as an array → `migrateV1`;
-- v2 → unchanged;
-- greater than 2 → throw `NewerSchemaError`, which puts the app into read-only.
-
-`validateDoc` is hand-written and returns error paths.
+`migrate(doc)`:
+- v1, or arrays → `migrateV1`;
+- v2 → identity;
+- greater than 2 → throws `NewerSchemaError`, which makes the app read-only.
 
 ---
 
 ## 3. Sync design
 
-This reuses blind §4 with the following hybrid specifics.
+### 3.1 Local storage and dispatch
 
-- **Local copy:**
-  - IDB `one-on-one:{permissionId}`, or `one-on-one:local` for trial mode.
-  - Stores: `kv` (`doc`, `meta{fileId, folderId, backupsId, remoteVersion, lastSyncAt, dirty, editSeq, deviceId, maxSeen, readOnly, everSynced, legacy:{fileId, version}|null, lastBackupDate, lastRetentionDate}`) and `drafts`.
-  - `localStorage.oneOnOne.lastAccount = {permissionId, email, name}`. `about` now requests `permissionId`.
-- **Boot is offline-first.**
-  - If `lastAccount.permissionId` exists, open that DB and render right away. Auth happens in the background.
-  - First boot after the upgrade has no `permissionId`, so it needs one click (the existing "המשך בתור …" button).
+- **Normal mode:** IDB `one-on-one:{permissionId}` (or `:local` for trial mode) with stores `kv` and `drafts`.
+  - `meta` holds `{fileId, folderId, backupsId, remoteVersion, lastSyncAt, dirty, editSeq, gen, syncedWatermark, deviceId, maxSeen, readOnly, everSynced}`.
+  - `localStorage.oneOnOne.lastAccount = {permissionId, email, name}`.
+  - Call `navigator.storage.persist()` after the first sign-in. If dirty for more than 24 h, the badge warns "יש שינויים שלא נשמרו ב-Drive".
+- **Shared-computer mode** (decision 10, checkbox at sign-in):
+  - `memoryStore` holds the doc in memory; drafts go to `sessionStorage`.
+  - Nothing is written to localStorage or IDB.
+  - `beforeunload` warns if dirty. A reload requires signing in again, and there is no offline use.
 - **Dispatch:**
-  - It runs under the lock `doc:{acct}`.
-  - If IDB `meta.editSeq` differs from memory (another tab wrote), reload the doc and re-apply the pure action.
-  - Then write `doc` and `meta{dirty:true, editSeq+1}`, post `BroadcastChannel('one-on-one:{acct}')` `{type:'doc-changed'}`, debounce sync by 1500 ms and notify `{reason:'local'}`.
-- **Sync engine:**
-  - It follows blind §4.4 under the lock `sync:{acct}`: metadata → (download → `migrate` → `mergeDocs`) → `ensureDaily` copy → upload → reconcile mid-sync edits by merging with the current IDB doc.
-  - If the merge changed local, notify `{reason:'remote'}`.
-  - Triggers: debounce, `online`, `focus`/visible, every 60 s while visible, after a token arrives, and `hidden` (best effort).
-  - **The old focus handler is deleted**, because `focus` now only triggers a sync whose result goes through the render guard.
-- **Merge:** blind §4.5 with these differences:
-  - conflicts are produced for **both** `meetings.summary` and `students.notes`;
-  - there is no single-next normalization (it's no longer needed);
-  - `conflicts` is merged as an ordinary collection.
-- **Conflict UI:** a banner on the student page when there are undismissed conflicts for that student: "נמצאה גרסה נוספת של סיכום/הערות – הצג". The panel offers "העתק", "שחזר כטקסט נוסף" (appends the lost text) and "סגור" (sets `dismissedAt`).
-- **Discovery (`sync/discovery.js`):**
-  1. **Cached `fileId`:** read its metadata. If it's trashed or 404, and `meta.everSynced` is set, go to state **`remote-deleted`**. **Never auto-create.** A banner offers "מחק גם מהמכשיר הזה" or "העלה את העותק מהמכשיר הזה" (the second creates a new folder and file).
-  2. **No cached id:** run `files.list` on `appProperties {app:'one-on-one', kind:'data'}`, not trashed.
-     - 1 result: use it.
-     - More than 1: keep the oldest, merge the rest in, and trash them.
-  3. **0 results, so try legacy:** use the folder from `localStorage['oneonone.drive.folderId']` or a name search (`config.folderName`), then look for `one-on-one-data.json` in it. If found:
-     - `files.copy` it to `backups/pre-migrate-v1-{ts}.json`;
-     - `migrateV1`, then merge with local (the IDB doc, plus `oneonone.pending` migrated if present);
-     - create `one-on-one-data-v2.json` in **the same folder** with appProperties, and tag the folder (`kind:'root'`) and `גיבויים` (`kind:'backups'`);
-     - set `meta.legacy = {fileId, version}`.
-     - **The v1 file is never modified or renamed.** An old-code tab left open keeps writing to v1 and never sees v2 (that's §7 risk 1).
-  4. **Nothing found:** create the folder, the v2 file and `גיבויים`.
-- **Legacy catch-up:** at boot sync, if `meta.legacy` is set and its version changed, download it, `migrateV1` it and **merge add-only**: only ids absent from the v2 doc are added; existing entities are never overwritten. Then toast "נוספו שינויים ממכשיר עם גרסה ישנה".
-- **Backups:**
-  - `ensureDaily` makes a `files.copy` of the pre-upload remote into `גיבויים/data-YYYY-MM-DD.json`.
-  - `retentionPlan` follows blind §4.6 and also recognizes the legacy `backup-YYYY-MM-DD.json` names as dailies. `pre-migrate-*` and `pre-restore-*` share the "keep 5 newest" bucket.
-  - Retention runs at most once a day.
-- **Restore from file (kept):**
-  - `migrate`, then `validateDoc`, then confirm with counts.
-  - `files.copy` the current remote to `pre-restore-{ts}`.
-  - Replace the doc, **re-stamping every restored entity** with `updatedAt=now`, and **tombstoning every current live id absent from the restored doc**. Without that, merge would resurrect them from other devices.
-- **Sign-out (no revoke):**
-  - If dirty, try one sync. If that fails, confirm "יש שינויים שלא נשמרו ב-Drive – לצאת בכל זאת?".
-  - Delete this account's IDB DB and `lastAccount`, and drop the token.
-  - Keep `oneonone.drive.authorized`, so the next sign-in skips consent. The next sign-in uses `prompt:'select_account'`.
-- **Disconnect** (a separate button in Settings): `google.accounts.oauth2.revoke`, then sign out, then clear `authorized`.
+  1. Take the lock `doc:{acct}`.
+  2. If `meta.gen ≠ memory.gen`, reload the doc from IDB.
+  3. Apply the pure action.
+  4. Write the doc and `meta{dirty: true, editSeq+1, gen+1}`.
+  5. Broadcast `doc-changed` and debounce sync by 1500 ms.
+  6. Notify, which morphs the view.
+- **`tx` stamping:**
+  - `updatedAt = max(now, maxSeen + 1ms)`.
+  - `base`:
+    - if `old.by === deviceId && old.updatedAt > syncedWatermark` (an unsynced own edit), keep `old.base`;
+    - otherwise `{updatedAt: old.updatedAt, by: old.by}`;
+    - for new entities, `null`.
+
+### 3.2 Merge (`domain/merge.js`)
+
+The merge runs per collection over the union of ids.
+- An id on one side only is taken from that side.
+- Otherwise the winner is the max of `(updatedAt, by, canonicalJSON)`.
+- **Students use sticky delete:** a live version beats a tombstone `T` only if `live.base ≥ (T.updatedAt, T.by)`, meaning it saw the delete, which only a restore can do. Otherwise the tombstone wins.
+
+**Conflicts.** A conflict is recorded when both sides are live, a protected field differs, and the loser is **not an ancestor** of the winner. The loser is an ancestor when either:
+- `winner.base ≠ null` and `(loser.updatedAt, loser.by) ≤ (winner.base.updatedAt, winner.base.by)`, **or**
+- `loser.by === winner.by` and `loser.base` deep-equals `winner.base`, meaning the same device in the same unsynced lineage.
+
+A conflict entity's stamps all come from the loser: `createdAt = updatedAt = loser.updatedAt`, `by = loser.by`. Its id is deterministic. A dismissed (tombstoned) conflict outranks a re-derived one, because the dismiss time is newer.
+
+**Form base.** Edit forms and notes drafts carry the `base` they opened from. `editMeeting`/`setNotes` check it:
+- if the current entity's version differs from the form's base and its text differs, a local conflict is written with the current text as `lostText`;
+- this covers a remote change that arrived while the user was typing.
+
+A restore sets `base` = the current version, so it produces no conflicts.
+
+**Post-merge normalization** (deterministic):
+- Every live child of a tombstoned student is tombstoned. Children are meetings, topics, planned items, completions with that subject, `scope:'student'` goals, and conflicts on those entities.
+- The child's stamp is `updatedAt = max(child.updatedAt + 1ms, student.updatedAt)`, `by = student.by`.
+
+`expireConflicts(now)` runs as an action after each sync and tombstones conflicts older than 30 days. Tombstoning strips `lostText`.
+
+The merge is idempotent, commutative and associative, which property tests check.
+
+### 3.3 Sync engine
+
+The engine follows blind §4.4 under `sync:{acct}`, with these differences:
+- It runs `resolveDataFile()` (§3.4) first.
+- **The final write runs under `doc:{acct}`:** `cur = IDB doc`, `final = merge(cur, mergedRemote)`, write with `gen+1`, and broadcast. `dirty = (cur.editSeq ≠ seq0) || final ≠ uploaded`.
+- After any sync where local equals remote, `syncedWatermark` = the max `updatedAt` in the uploaded or downloaded doc.
+
+**Triggers:** debounce, `online`, `focus`/visible, every 60 s while visible, and after a token grant. The v1 focus handler is not ported.
+
+**Account check (M2):** after every token grant, call `about?fields=user(permissionId, emailAddress, displayName)` before any Drive call. If the permissionId differs from the open DB:
+- if the open DB is clean, switch to that account's DB;
+- if it's dirty, show a modal: "נכנסת כ-X; לחשבון Y יש שינויים שלא נשמרו" with [התחבר שוב כ-Y] or [עבור ל-X, השינויים של Y יישארו במכשיר].
+
+The app never merges across accounts.
+
+### 3.4 Discovery (B2, B3 and M13)
+
+```
+resolveDataFile():
+  if meta.fileId:
+     m = getMeta(fileId, fields: trashed, appProperties, parents)
+     if trashed && m.appProperties.supersededBy: switch fileId → supersededBy, merge (no prompt)
+     if 404 or trashed (no supersededBy): fall through to discovery
+  L = list(app='one-on-one', kind='data', trashed=false), excluding files whose parents include backupsId
+  if |L| ≥ 1: winner = minBy(createdTime, id)
+     for each loser: download → migrate → merge into local
+     upload the winner; then PATCH each loser {trashed:true, appProperties:{supersededBy: winner.id}}
+  if |L| = 0:
+     if meta.everSynced: state 'remote-missing'
+        if a trashed data file exists → offer [שחזר מהאשפה] (PATCH trashed:false on file and folder)
+        also offer [העלה את העותק מהמכשיר הזה] and [מחק גם מהמכשיר הזה] (confirm dialog)
+     else (first run, including everSynced=false with a trashed cached id):
+        legacy lookup (§3.6) → migrate + create, or create fresh;
+        then re-list immediately and dedup if |L| > 1
+```
+
+- `files.list` runs on **every boot sync**: one call.
+- **Every `files.copy` sets `appProperties: {app:'one-on-one', kind:'backup'}`** explicitly.
+- A race to create the root folder at first run can leave an empty duplicate folder. It's harmless and documented.
+
+### 3.5 Backups, restore and scrub
+
+- **Daily backups:** `ensureDaily` copies the pre-upload remote file to `גיבויים/data-YYYY-MM-DD.json`.
+- **Retention:** `retentionPlan` follows blind §4.6 and treats legacy `backup-*.json` names as dailies.
+- **Restore from the Drive backups list** (decision 8):
+  1. Settings → "שחזור מגיבוי ב-Drive" lists the backups folder (name, `createdTime`, size), newest first.
+  2. Choosing one downloads it, runs `migrate` and `validateDoc`, and shows the counts for confirmation.
+  3. The current remote file is copied to `pre-restore-{ts}` (with `kind:'backup'`).
+  4. The doc is replaced: every restored entity is re-stamped with `updatedAt = now` and `base` = the current version of that id, and every live id that is missing from the backup is tombstoned.
+- **Restore from a local file** uses the same path.
+- **Scrub** (decision 14; `scrubPlan`, pure): it runs when `today ≥ legacy.migratedAt + 30` **and** at least 14 v2 dailies exist **and** `V2_MODE === 'on'`.
+  - **Permanent `DELETE`** of every legacy `backup-*.json`, every `pre-migrate-v1-*` file and the v1 data file.
+  - Then set `legacy.scrubbedAt`.
+
+### 3.6 Legacy v1 file
+
+- **First migration:**
+  1. Find the folder (cached `oneonone.drive.folderId` or a name search) and `one-on-one-data.json` in it.
+  2. Copy it to `pre-migrate-v1-{ts}` (with `kind:'backup'`).
+  3. Run `migrateV1`, then merge in the IDB doc and `oneonone.pending` (migrated too).
+  4. Create the v2 file in the same folder and tag the folder and the backups folder.
+  5. **The v1 file is never written.**
+- **Catch-up:** while `today ≤ legacy.catchUpUntil`, any device's boot sync checks the v1 version. If it changed, the device downloads it, migrates it and merges **add-only**: only ids missing from v2 are added.
+- **Marker doc, considered and rejected.** The idea is to overwrite v1 with a "please refresh" doc.
+  - For: it signals old tabs.
+  - Against: it shows an empty class in old tabs, and it **breaks code rollback during the canary**, because v1 code would read the marker.
+- **Residual risk:** an old-code tab left open after delete-all or the scrub can re-create the v1 folder or file (§8 risk 1).
+
+### 3.7 Auth, sign-out, disconnect, delete-all and the trial merge (P8c)
+
+- **Auth:** `auth.js` keeps "first click refreshes the token" and adds `hasGrantedAllScopes` and `mapAuthError` (blind §4.2), with the Hebrew strings in `ui/i18n.js`.
+- **Sign-out:**
+  1. Run a full sync (pull, merge, push), then re-read `version`, which must equal the uploaded version. If anything fails, confirm with "יש שינויים שלא נשמרו…".
+  2. Broadcast `signed-out`. Other tabs close their DB connection (`onversionchange` → `db.close()`) and show the connect screen.
+  3. `deleteDatabase`. If `onblocked` fires, show "סגרו לשונות אחרות של האפליקציה" and retry.
+  4. Clear drafts and `lastAccount`. Keep `authorized`. The next sign-in uses `prompt:'select_account'`. **No revoke.**
+- **Disconnect:** revoke (POST to `oauth2.googleapis.com/revoke` via GIS), then sign out, then clear `authorized`.
 - **Delete all:**
-  - The user must type "מחק" exactly.
-  - `PATCH files/{folderId} {trashed:true}` trashes the folder with the v1 file, the v2 file and the backups.
-  - Then delete the IDB DB, `lastAccount`, `oneonone.*` keys and drafts.
-  - Show "הנתונים הועברו לאשפה ב-Drive ויימחקו לצמיתות תוך 30 יום". Other devices hit `remote-deleted`.
-- **Auth (`sync/auth.js`):**
-  - Keeps the current "first click refreshes" model (`refreshIfNeeded` on a capture-phase click).
-  - Adds `hasGrantedAllScopes`, `mapAuthError` (blind §4.2 table, with Hebrew in `ui/i18n.js`) and states `none | valid | needs-gesture | blocked`.
-  - Local editing is never blocked.
-- **Read-only:** if the remote has `schemaVersion > 2`, set `meta.readOnly`, show a banner, block dispatch and never upload.
+  1. The user types "מחק".
+  2. `PATCH folder {trashed:true}`.
+  3. Broadcast `deleted`, then delete the IDB DB and the `oneonone.*` keys.
+  4. Show the 30-day message.
+- **Trial → Drive:** a confirmation shows the counts and the duplicate names, compared with `normalizeName`. Then merge, and delete `one-on-one:local`.
+- **Read-only:** as in v1 of this plan, a `schemaVersion > 2` blocks dispatch and uploads.
 
 ---
 
-## 4. Feature additions (where they land)
+## 4. Feature additions
 
-| Feature | Domain | UI |
+| Feature | Domain | UI (v2, P9 unless noted) |
 |---|---|---|
-| Needs-attention | `student.needsAttention`; action `setNeedsAttention(sid, flag, reason)` | Student header toggle plus reason input; badge in the students table and suggestions; students-list filter "רק דורשי תשומת לב" |
-| Topic priority | `topic.priority`; `setTopicPriority`. The add option "חשוב" sets `high` and places the topic first. | ★/☆ toggle per topic (`aria-pressed`); the add form's "בראש הרשימה" checkbox is renamed "חשוב" |
-| Snooze | `student.snoozedUntil`. Actions: `snooze(sid, 'tomorrow'|'nextWeek')` → `shiftOffSaturday(nextWorkday(today+1))` / `shiftOffSaturday(today+7)`. Cleared by any counted meeting. | "לא היום" / "שבוע הבא" buttons on `suggested` rows |
-| Meeting form | `recordMeeting` input gains `checkupInDays?`, `checkupReason?`, `newTopics[]` | Chips "מעקב בעוד: 3 ימים · שבוע · שבועיים" plus a reason field; a "נושאים לפעם הבאה" textarea (one per line); the next-date field is kept |
-| Parent meetings don't count | `countedMeetings` = live meetings with `type !== 'parent'`. They're used by `lastMeetingDate`, stale, coverage, the weekly trend and snooze clearing. A parent meeting **doesn't** close the planned `next` (it still closes checkups only if `type==='checkup'`), but it **can** tick goals and topics. | New type "שיחה עם הורים" in the select, with a distinct badge |
-| Saturday shift | `shiftOffSaturday` is enforced in every action that stores a date (planned, checkup, snooze, goal `dueDate`, meeting date). Suggestions never use day 6. The ש׳ checkbox is removed from settings. | `ui/dateInput.js`: a delegated `change` listener on every `input[type=date]` shifts a Saturday to Sunday and announces "שבת אינה אפשרית – הועבר ליום א׳" in an `aria-live` region. If the shift passes `max`, the value is cleared with a message. |
-| Stats | `recurrence.adherence`, `stats.goalStats` (adherence, current period x/N, missed list), `stats.meetingsPerWeek(8)`, `coverage` (counted meetings) | Dashboard: "עמידה ממוצעת" replaces "מטרות חוזרות בזמן"; the weekly chart is an **SVG** (`<rect height>` attributes, so it's CSP-safe); goal rows read "תקופה נוכחית: ממתין · עמידה 75% (3/4)" with `<details>` "תקופות שהוחמצו" |
-| Goal frequency | Calendar rules; a frequency edit appends a segment (blind §5.1) | `recurrenceFields`: presets שבועי/דו-שבועי/חודשי/דו-חודשי/כל 3 חודשים/פעם במחצית, plus custom "כל N [שבועות/חודשים]" |
-| Mobile nav / CTA | n/a | CSS only. At ≤640px `#nav` becomes a fixed bottom bar with `padding-bottom: env(safe-area-inset-bottom)` and `body` gets bottom padding. The student page gets a sticky "+ רישום מפגש"; while the form is open, "שמירת המפגש" is sticky. Verified visually in light and dark (no TDD for layout). |
-| Notices | `settings.noticesAck` | Dashboard card(s) until acknowledged: the privacy notice, and the mandatory-reporting text from spec §2.10. The welcome screen adds "מומלץ חשבון Gmail אישי". The Settings Drive link adds a sharing warning. |
-| Auth errors | `mapAuthError` | The connect screen and status badge show the mapped Hebrew message (the raw code goes in `title` for `auth.unknown`) |
-| CSP and fonts | n/a | Rubik woff2 in `fonts/` with `@font-face` in `styles.css`; the Google Fonts `<link>`s are removed. `progressBar` uses classes `pct-0…pct-100` (step 5, 21 CSS rules) instead of `style=`. Meta CSP as in blind §7 but with `form-action 'self'`. Fonts are added to the SW precache. `privacy.html` gets the same CSP and updated sections on deletion and sign-out. |
+| Needs-attention | `setNeedsAttention`; it makes the student due today | Header toggle and reason; list filter; badge |
+| Topic priority | `setTopicPriority`; adding with "חשוב" sets `high` and puts the topic first | ★ toggle with `aria-pressed` |
+| Snooze | `snooze(sid, 'tomorrow'|'nextWeek')`, shifted off Saturday; cleared by a counted meeting | "לא היום" and "שבוע הבא" on suggested rows |
+| Meeting form | `recordMeeting` adds `checkupInDays`, `checkupReason` and `newTopics[]`. **Any counted meeting closes due checkups (M11).** A `parent` meeting doesn't close the next meeting or count toward cadence, but it can tick topics and goals. | Chips 3d/1w/2w with a reason; a "נושאים לפעם הבאה" textarea; the "שיחה עם הורים" type |
+| Saturday | `shiftOffSaturday` in every action that stores a planned, checkup, snooze or `dueDate` value. **The meeting date is stored as entered.** Suggestions never fall on day 6. Empty workdays fall back to Sun–Fri. | `ui/dateInput.js` (P2) acts on `input[type=date][data-no-saturday]`. It is added to the schedule, checkup, goal due-date and next-date inputs, **not** the meeting date. |
+| Stats | Adherence counted from `countFrom`, with `inactiveSpans` excluded; `meetingsPerWeek(8)`; coverage using counted meetings | Mean adherence; SVG weekly chart; the goal row "תקופה נוכחית … · עמידה x% (a/b)" and its "היסטוריה" details (pre-upgrade completions shown as history) |
+| Goal frequency | Calendar rules; editing appends a segment; `half` | Presets including "פעם במחצית" = half/1 |
+| Mobile | (none) | Bottom nav and a sticky CTA (CSS; checked visually in light and dark) |
+| Notices (P8c) | `settings['noticesAck.privacy'/'noticesAck.reporting']` | Dashboard card; the welcome screen's "מומלץ חשבון Gmail אישי"; a share warning |
+| Auth errors (P8c) | `mapAuthError` | Connect screen and badge |
+| CSP and fonts (P2) | (none) | Self-hosted Rubik in `fonts/` with OFL; `pct-*` classes |
 
-**Suggestions (hybrid):** this keeps the current day-spreading with capacity and replaces urgency ordering with blind-style scores.
+**Suggestions:** unchanged from v1 of this plan (day-spreading with scores). One addition: the day walk skips Saturday and non-workdays, and stops after 3650 days.
 
-*Items:*
-- A live `next` with status `planned` produces a `scheduled` item.
-- Each live planned checkup produces a `checkup` item.
-- Students with no planned `next` become candidates. Each candidate's `earliest` is `max(today, due, snoozedUntil)`, where `due` is:
-  - `today` if the student has never been met or `needsAttention` is set;
-  - otherwise `shiftOffSaturday(last + cadence)`.
+### 4.1 Exact CSP (meta tag in `index.html` and `privacy.html`)
 
-*Score:*
-- never met: 400;
-- otherwise `200·min(daysSince/cadence, 3)`;
-- needs attention: +150;
-- high-priority open topics: `40·min(n, 3)`;
-- goal work: `30·min(k, 3)`.
+```
+default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; font-src 'self'; img-src 'self' data:; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/ https://oauth2.googleapis.com/revoke; frame-src https://accounts.google.com/gsi/; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'
+```
 
-Reason chips follow the blind §5.3 codes.
-
-*Placement:* walk the days from today, skipping non-workdays and Saturday. On each day, fill `capacity − load(day)` slots with the eligible unplaced candidates ranked by (score desc, daysSince desc with never-met = ∞, he-collator name, id).
-
-*Output:* sort by (date, kind order scheduled < checkup < suggested, score desc) and take `slice(count)`.
+- GIS injects an inline `<style id="googleidentityservice_button_styles">`. The resulting violation is expected and harmless. E2e allowlists that one console message.
+- `alt=media` downloads must not redirect off `www.googleapis.com`. Verify in the P8c canary checklist.
 
 ---
 
 ## 5. Phases
 
-Every phase ends with `npm run check` green. Bug fix → reproduction test first. New logic: qa writes the listed ACs red, then builder makes them green.
+Every merge to `main` is safe for real users: `V2_MODE='off'` until P10, and v1 changes are limited to P1 and P2.
 
-| # | Phase | Files | Depends on |
+| # | Phase | Contents | Depends on |
 |---|---|---|---|
-| P0 | Tooling, relocated tests, CI, HTML sink | `package.json`, `package-lock.json`, `tsconfig*.json`, `js/types.d.ts`, `eslint.config.js`, `vitest.config.js`, `.github/workflows/check.yml`, `.gitignore`; move tests (converted to Vitest `test`/`expect`); `js/ui/html.js` (`setHTML`, `attr.bool`), with all `innerHTML` writes in `app.js` and the `raw` uses in views routed through it | none |
-| P1 | **Focus-reload bug + drafts** (on the current architecture) | `js/main.js` split from `app.js` (`createApp`), `js/ui/renderScheduler.js`, `js/ui/drafts.js` (localStorage adapter); `data-draft` on the meeting, edit-meeting, notes and topic-edit forms; `index.html` and `sw.js` entry updated | P0 |
-| P2 | Quick privacy/UX wins on current code | `js/import/vcard.js`, `nameList.js` (names-only, phones opt-in checkbox on the import view); `js/sync/auth.js` `mapAuthError` + `ui/i18n.js` wired into the current `DriveBackend`; sign-out without revoke plus Disconnect; `ui/dateInput.js` Saturday shift; notices card (ack in localStorage until P8); self-hosted fonts, CSP meta, `pct-*` classes and the `style=` lint rule | P0; parallel with P1 |
-| P3 | Domain v2 core | `domain/dates.js`, `ids.js`, `schema.js`, `tx.js`, `selectors.js`, `cadence.js`, `actions.js` (all mutations ported from `logic.js`/views plus needs-attention, priority, snooze, parent rule, `recordMeeting` with chips and new topics) | P0 |
-| P4 | Recurrence and stats | `domain/recurrence.js`, `stats.js` | P3 |
-| P5 | Hybrid suggestions | `domain/suggestions.js` | P3, P4 |
-| P6 | Migration, validation and merge | `domain/migrateV1.js`, `migrate.js`, `merge.js` (+ fast-check property tests) | P3, P4 (period keys) |
-| P7 | Storage and sync (with fakes) | `storage/idb.js`, `accountStore.js`, `sync/drive.js`, `discovery.js`, `syncEngine.js`, `backups.js`, `locks.js`; `e2e/fakeDrive.js` doubles as a unit fake | P6 |
-| P8a | **Cutover, local/trial mode** | `app/store.js`; views ported to selectors/actions; drafts adapter moved to IDB; one-time `oneonone.data` → `migrateV1` → `one-on-one:local`; multi-tab broadcast; conflict banner; read-only banner; **delete `model.js`, `logic.js`, `store.js`, `ui.js`** | P1, P5, P7 |
-| P8b | **Cutover, Drive mode (riskiest)** | Boot flow with lastAccount/IDB, discovery + legacy migration + `oneonone.pending`, remote-deleted, sign-out clearing IDB, delete-all, restore-from-file semantics, trial → Drive merge; **delete `storage.js`** | P8a |
-| P9 | UX additions on v2 | Needs-attention UI and filter, ★ priority, snooze buttons, meeting-form chips and new-topics field, parent type, stats UI (adherence, missed periods, SVG weekly chart), calendar frequency UI, mobile bottom nav and sticky CTA (CSS) | P8a (P9 can start once P8a lands) |
-| P10 | E2E and devices | `playwright.config.js`, `e2e/*.spec.js` with `fakeGis.js`/`fakeDrive.js`; CI e2e job; manual run on Android Chrome, iOS Safari (tab + installed PWA) and desktop with two browsers on one account | P8b, P9 |
+| P0 | Tooling | Scripts, `tsconfig.json`, ESLint, Vitest, CI, moved tests, `ui/html.js` sink, `attr.bool` | (none) |
+| P1 | **Safety net and typing fix (v1)** | `main.js` plus `createApp()`. **DOM-level characterization tests for every handler in `js/views/*`** (these define the parity contract). The AC-F1 reproduction, written red first. `ui/morph.js` replaces the `innerHTML` swaps and the `keepFocus`/`details` hacks. `data-key` on lists. `ui/drafts.js` (localStorage, cleared on sign-out). Notes autosave. | P0 |
+| P2 | Quick wins (v1, trimmed) | `import/*` (names only; phones opt-in) with the v1 `contacts→phones` adapter. **A separate commit changes `vcf.test.js` lines 16–19** (email and home phone are no longer imported; per CLAUDE.md, this is an explicit test change). `dateInput` with `data-no-saturday`. Fonts, CSP, `pct-*`, the `style=` lint rule. | P0, parallel to P1 |
+| P3 | Domain core | `dates`, `ids`, `schema`, `tx` (`base`, watermark), `selectors`, `cadence`, **`periods`/`periodKeyFor` (week, month, half)**, `actions`. `tsconfig.strict.json` lands here. | P0 |
+| P4 | Recurrence status and stats | `recurrence` (status, adherence, `countFrom`, `inactiveSpans`), `stats` | P3 |
+| P5 | Suggestions | `suggestions` | P3, P4 |
+| P6 | Migration and merge | `migrateV1`, `migrate`, `merge` (ancestry, sticky delete, normalization, conflicts), property tests | P3, P4 |
+| P7 | Storage and sync (with fakes) | `storage/*`, `sync/*`. The fake Drive models copy inheritance, `supersededBy`, trash and 404. | P6 |
+| P8a | v2 shell, local mode, views part 1 | Switch in `main.js`; `app/*`; IDB; trial migration; `ui/views` dashboard and students; characterization tests run on v2 | P1, P5, P7 |
+| P8b | Views part 2 | Student, goals, import, settings; conflict UI; read-only banner | P8a |
+| P8c | v2 Drive (canary only) | Auth, account check, discovery and legacy, shared mode, sign-out, disconnect, delete-all, restore list, scrub, notices. **Canary checklist on real Drive:** copy `appProperties`, `alt=media` host, untrash, `supersededBy`, iOS GIS | P8b |
+| P9 | UX additions (v2) | §4 UI | P8b (parallel to P8c) |
+| P10 | E2E and rollout | Playwright with fake GIS and Drive; CI job. The author runs canary on phone and laptop for ≥7 days, then sets `V2_MODE='on'`. | P8c, P9 |
+| P11 | Cleanup (after the scrub window) | Delete the v1 tree and the switch; drop the v1 characterization runner | P10 + 30 days |
 
-P1 and P2 ship user value before the rebuild, and P2's modules (`vcard`, `mapAuthError`, `dateInput`, fonts/CSP) carry over unchanged.
+**Rollback:**
+- **During the canary:** remove the `oneonone.canary` key. The v1 code still reads the untouched v1 file, and the canary edits stay in the v2 file.
+- **After `on`:** roll forward only. Before the scrub, the v1 file is stale but intact.
 
 ---
 
 ## 6. Acceptance criteria
 
-**Shared fixtures:**
-- today = 2026-10-08 (Thursday);
-- `TZ=Asia/Jerusalem`;
-- workdays Sun–Fri;
-- `meetingsPerDay` 2;
-- default cadence 21 and `staleDays` 21, unless stated otherwise.
+**Fixtures:** today = 2026-10-08 (Thursday), TZ Asia/Jerusalem, workdays Sun–Fri, capacity 2, cadence 21, `staleDays` 21. "Blind AC-n" means the blind plan's criterion n.
 
-"Blind AC-n" means the blind plan's criterion n (`2026-10-08-architect-plan.md` §9), adopted verbatim unless an adaptation is noted.
+### P0 (AC-TL)
+1. `npm run check` exits 0. All 13 existing tests pass from their `js/**` locations, and `tests/` no longer exists.
+2. ESLint on `el.innerHTML = x` in `js/views/x.js` reports an error, and the same code in `js/ui/html.js` doesn't. Importing `raw` in a view reports an error. `js/domain/x.js` importing from `ui/` reports an error (rule active from P3).
+3. `parseSafe('<b>')` (a plain string) throws `TypeError`. `parseSafe(html`<b>${'<i>'}</b>`)` yields one `<b>` with the text `<i>`.
+4. `attr.bool('checked', true)` gives ` checked`, and `false` gives the empty string.
+5. Blind AC-49: the `sw.js` `SHELL` list equals the shipped files, excluding `*.test.js` and fixtures.
 
-### P0 Tooling (AC-TL)
-1. `npm run check` exits 0. The 13 existing tests pass from their new `js/**` locations, and `tests/` no longer exists.
-2. The ESLint Node API run on the snippet `el.innerHTML = x` in virtual file `js/views/x.js` reports `no-restricted-properties`. The same snippet in `js/ui/html.js` reports nothing.
-3. A template literal containing `style="width:1px"` in `js/views/x.js` reports an error (active from P2). `import { raw } from '../ui/html.js'` in a view reports `no-restricted-imports`. `js/domain/x.js` importing `../ui/html.js` reports an error.
-4. `setHTML(div, '<b>x</b>')` (a plain string) throws `TypeError`. `setHTML(div, html`<b>${'<i>'}</b>`)` yields one `<b>` with text `<i>`.
-5. `attr.bool('checked', true)` renders ` checked`, and `false` renders the empty string.
-6. Blind AC-49, adapted: the `sw.js` `SHELL` list equals the set of shipped files (`index.html`, `privacy.html`, manifest, `css/`, `js/**/*.js` excluding `*.test.js` and fixtures, `icons/` and `fonts/` from P2).
+### P1 Characterization and typing fix (AC-CH, AC-F)
+1. AC-CH: for every `data-action`, `data-form` and `data-change` handler in `js/views/*`, a happy-dom test drives the DOM (clicks, fills, submits) and asserts the visible result: text, counts and badges. This includes:
+   - topics add, urgent, move and done;
+   - goal toggle;
+   - schedule and clear;
+   - checkup add, done, undo and delete;
+   - add, edit and delete meeting;
+   - edit details;
+   - set active;
+   - delete a student;
+   - settings save;
+   - import preview and confirm.
 
-### P1 Focus-reload bug (AC-F). F1 is written first and must fail on the current code.
-1. Bug reproduction (happy-dom, `createApp` with a fake Drive backend whose `currentVersion()` returns a changed version and whose `load()` returns a doc with an extra meeting):
-   - render `#/student/s1?meeting=new`;
-   - type "סיכום חלקי" into `textarea[name=summary]` via input events, with focus kept;
-   - dispatch `window` `focus` and await.
+   These tests contain no references to internal data shapes, so they run unchanged against v2 in P8.
+2. **AC-F1 (reproduction, red on the current code):**
+   - **Setup:** a fake backend's `currentVersion()` reports a change, and `load()` adds meeting m9.
+   - **Steps:** on `#/student/s1?meeting=new`, type "סיכום חלקי" into the summary, then dispatch the `window` `focus` event.
+   - **Expected:** the value is unchanged, the textarea is `activeElement`, `selectionStart === 10`, **and m9 is already listed** (no deferral).
+3. AC-F2: submitting the form saves the meeting with "סיכום חלקי" and clears the draft and `data-dirty`.
+4. AC-F3: the summary is typed but focus has moved to the topic `t1` checkbox. Ticking `t1` marks it done, and the summary still reads "סיכום חלקי" (it's dirty, so it's preserved).
+5. AC-F4: type, then destroy and recreate the app on the same storage. The form shows the exact text again. A checkbox group draft `{topicIds:['t1','tX']}`, where `tX` no longer exists, restores `t1` checked and doesn't throw. Cancel deletes the draft.
+6. **AC-F5:** type "abc" into the notes and stay focused. After 300 ms the note is saved (`notes === 'abc'`), **`activeElement` is the same node, and `selectionStart === 3`**. A remote reload at that point changes nothing in the textarea.
+7. AC-F6: the edit-meeting form behaves like F1.
+8. AC-F7: typing in the students search keeps focus and caret.
+9. AC-F8: an open `<details>` stays open after a morph.
+10. **AC-F9 (no swallowed taps):** focus is in the add-topic input with text "X". A remote reload runs, then a `pointerdown`/`click` on "הוספה". Topic "X" is added, and the button node is the same object before and after.
+11. AC-F10: after typing, `pagehide` flushes the draft to storage synchronously, so it is present without waiting 300 ms. Sign-out clears the drafts.
 
-   Expected: the textarea value is still "סיכום חלקי", it is still `document.activeElement`, and the "עודכנו נתונים ממכשיר אחר" banner is visible. **On the current code the value is "", which is the red result.**
-2. Continuing F1, submitting the form saves the meeting with summary "סיכום חלקי". After that the deferred render runs, and the remote extra meeting is listed.
-3. Same as F1, but the user clicks the topic checkbox `t1` (a local action) instead of focus. The topic is marked done and the summary text survives.
-4. Type into the meeting form, then destroy the app instance and create a new one on the same storage. Reopening the form shows the exact text. After a successful save, `drafts.get('meeting:new:s1')` is `undefined`. After "ביטול", the draft is also removed.
-5. Notes: type "abc" into the student notes without blurring, then a remote reload happens. The value is still "abc". After 300 ms the debounced save stores `notes === 'abc'`.
-6. The edit-meeting form behaves like F1 (draft key `meeting:edit:{mid}`).
-7. Regression: typing in the students search keeps focus and caret (the existing `keepFocus` behaviour).
-8. The guard doesn't block non-editing renders: with focus on a `<button>`, a remote reload renders immediately.
+### P2 (AC-Q)
+1. Blind AC-54–60 against `vcard.js`. With `includePhones: false`, the `sample.vcf` output contains no `parent@example.com`, no `הרצל` and no phone digits. With `true`, `moshe.contacts` is `{studentCell:'0500000001', motherPhone:'0500000001', fatherPhone:'0500000002'}`. The v1 student page then shows exactly these 3 phones, labelled נייד/אמא/אבא.
+2. Blind AC-65 and AC-66 against `nameList.js`.
+3. The import has an unchecked "ייבוא טלפונים" box, and confirming without it stores no phones.
+4. **AC-Q6 (fixed):** setting 2026-10-10 on the schedule, checkup, goal due-date or next-date input gives 2026-10-11 and the `aria-live` announcement. Setting the **meeting-date** input to 2026-10-03 (Saturday) keeps 2026-10-03 with no announcement.
+5. `index.html` contains the §4.1 CSP string byte for byte. Nothing references `fonts.googleapis`/`gstatic`. `progressBar(0.63)` gives `class="progress-fill mid pct-65"` with no `style`.
 
-### P2 Quick wins (AC-Q, plus blind AC-I, AC-A and AC-X)
-1. Blind AC-54–60 against `js/import/vcard.js`. AC-58/59 apply with `includePhones`. For the existing `sample.vcf`, the output with `includePhones:false` contains no `parent@example.com`, no `הרצל`, no `031111111` and no phone digits at all. With `true`, `moshe.contacts` is `{studentCell:'0500000001', motherPhone:'0500000001', fatherPhone:'0500000002'}`.
-2. Blind AC-65–66 against `nameList.js` (quoted CSV and dedup are new behaviour). The existing name-list tests still pass.
-3. The import preview has an unchecked "ייבוא טלפונים (נייד, אמא, אבא)" checkbox. Confirming without it stores students with no phones.
-4. Blind AC-50, using `ui/i18n.js`. Also: `mapAuthError({type:'popup_closed'})` → `auth.popupClosed`, an unknown `{error:'xyz'}` → `auth.unknown`, and the message includes "xyz".
-5. Sign-out doesn't call `google.accounts.oauth2.revoke` and keeps `oneonone.drive.authorized`. Disconnect calls revoke once and removes it.
-6. Setting `2026-10-10` on any `input[type=date]` in any view (schedule, checkup, meeting date, goal due date) gives value `2026-10-11` and announces "שבת אינה אפשרית – הועבר ליום א׳" in the `aria-live` region. `2026-10-09` is unchanged.
-7. `index.html` contains the exact CSP string from this plan. No file in the repo references `fonts.googleapis.com` or `fonts.gstatic.com`. `progressBar(0.63)` renders `class="progress-fill mid pct-65"` with no `style` attribute.
-8. With no ack, the notices card renders once with both texts. After "הבנתי", a reload doesn't show it again.
+### P3 Domain core (blind AC-D, AC-C, AC-K; AC-N)
+1. Blind AC-1–5. AC-5 applies to planned, checkup, snooze and `dueDate`. `recordMeeting({date: '2026-10-10'})` stores `2026-10-10`.
+2. Blind AC-18–23. In addition, `staleDays` 30 with a last meeting 28 days ago → not in `notMetLately`, but due 2026-10-01.
+3. Blind AC-29 and AC-30 with `planned['next:s1']`. In addition:
+   - a `regular` meeting on 10-08 closes a checkup dated 10-06 (M11);
+   - a `parent` meeting on 10-08 closes neither the next meeting nor the checkup, doesn't change `lastMeetingDate`, but does create the completion for a ticked goal.
+4. AC-N1 (`tx`):
+   - `updatedAt = max(now, maxSeen + 1ms)`.
+   - Untouched entities are reference-equal, and the input stays frozen.
+   - **base:** editing a synced entity (`v={T1, 'B'}`, watermark ≥ T1) gives `base={T1, 'B'}`. Editing it again before sync (`by` = me, `updatedAt` > watermark) keeps `base={T1, 'B'}`.
+5. AC-N2: deleting s1 tombstones s1 and its children. **The JSON of every tombstone has exactly the allowlisted keys**: no names, notes, contacts, `externalKey`, `needsAttention`, summary, text or `lostText`.
+6. AC-N3: priority and needs-attention persist. Adding "X" as high-priority when the open topics are at [1024, 2048] gives order 512.
+7. AC-N4: snooze on Friday 10-09 'tomorrow' → 10-11; 'nextWeek' on 10-08 → 10-15. A regular meeting clears it; a parent meeting doesn't.
+8. AC-N5: renumbering when a gap is below 1e-6.
+9. AC-N6 (periods): `half` periods for a goal from 2026-10-01 are [10-01..01-31] and [02-01..08-31]. A week rule from 2026-09-02 gives the first key `2026-09-02` and the next `2026-09-06`.
 
-### P3 Domain core (blind AC-D, AC-C and AC-K, plus AC-N)
-1. Blind AC-1–5. AC-4 applies to the snooze options, and AC-5 to all date-storing actions, including the meeting date and goal `dueDate`.
-2. Blind AC-18–23 with cadence 21 and `staleDays` 21. Additionally:
-   - `staleDays` is independent of cadence: with `staleDays` 30, a student whose last meeting was 28 days ago is not in `notMetLately`, but their due date is still `2026-10-01`.
-3. Blind AC-29–30 with the `planned['next:s1']` id. Additionally:
-   - `recordMeeting({type:'parent', date:'2026-10-08'})` for a student with planned next 2026-10-08 leaves the next `planned` and `lastMeetingDate` unchanged;
-   - a goal ticked in that parent meeting creates its completion.
-4. AC-N1 (tx stamping): every entity the action touches gets `updatedAt` = `max(now, maxSeen + 1ms)` and `by = deviceId`. With `now` = T and `maxSeen` = T+5ms, the result is T+6ms. Untouched entities are reference-equal to the input, and the input doc isn't mutated (`Object.freeze` test).
-5. AC-N2: deleting student s1 tombstones s1 and all of its meetings, topics, planned items, personal goals and completions. No tombstone contains `firstName`, `notes`, `summary` or `text`.
-6. AC-N3: `setNeedsAttention('s1', true, 'קושי')` stores the flag. `setTopicPriority('t2','high')` persists. Adding a topic "X" with priority high and open topics at orders [1024, 2048] gives X order 512.
-7. AC-N4: `snooze('s1','tomorrow')` on 2026-10-09 (Friday) gives `snoozedUntil` 2026-10-11, and `'nextWeek'` on 2026-10-08 gives 2026-10-15. A `regular` meeting clears `snoozedUntil`, and a `parent` meeting doesn't.
-8. AC-N5: when a topic move leaves a gap below 1e-6, all of that student's open topics are renumbered at 1024 steps, preserving order.
+### P4 (blind AC-R and AC-G, plus AC-W)
+1. Blind AC-6–17, with `countFrom=null` for non-migrated goals.
+2. AC-W1–W3 as in v1 of this plan. In addition:
+   - **AC-W4:** a weekly everyone-goal from 2026-09-06 for a student with `inactiveSpans=[{from:'2026-09-20', to:'2026-10-04'}]` and no completions, today 10-12: the counted periods are the weeks of 09-06 and 09-13 (missed), and the week of 10-04 is excluded because its start falls inside the span. Adherence is 0/2. The keys of every period stay unchanged after reactivation.
+   - **AC-W5:** a monthly goal with `countFrom='2026-10-08'` and completions on 09-03 and 10-05, today 10-08: September shows "בוצע" as history but isn't counted, October is done, and adherence is 1/1. On 2026-12-02 with no November completion, November is missed and adherence is 1/2.
 
-### P4 Recurrence and stats (blind AC-R and AC-G, plus AC-W)
-1. Blind AC-6–17 verbatim. The per-student window is `activeFrom`.
-2. AC-W1: `meetingsPerWeek(doc, '2026-10-08')` returns 8 entries, oldest first, from `weekStart` 2026-08-16 to 2026-10-04. A `parent` meeting on 2026-10-06 is not counted.
-3. AC-W2: coverage with 23 active students, 17 of whom had a counted meeting within `staleDays` → `{met:17, total:23}`. A student whose only meeting is a parent meeting counts as not met.
-4. AC-W3: `goalStats` for an archived goal excludes it. `overall.meanAdherence` averages only non-null adherences: [1, 0.5, null] → 0.75.
+### P5 Suggestions (AC-H)
+1. The H1 table is unchanged from v1 of this plan: A 10-08, D 10-08, B 10-09, H 10-11, E 10-12 (scheduled), G 10-16, F 10-29.
+2. H2 is unchanged.
+3. **AC-H3 (fixed):** a fast-check generator builds valid docs only (every planned date is off Saturday, workdays ⊂ 0..5). Properties:
+   - no item falls on day 6;
+   - a `suggested` item is placed on day d only if `load(d)` before placing it is below capacity (scheduled and checkup items alone may exceed capacity);
+   - shuffling the input gives the same output;
+   - `workdays=[]` behaves as Sun–Fri and terminates.
+4. **AC-H4 (fixed):** the only student is C, last met **2026-09-20** with a checkup planned on 2026-10-06. Output: `[{C, 2026-10-06, checkup, missed: true}, {C, 2026-10-11, suggested}]`. 10-11 is the due date 09-20+21.
 
-### P5 Suggestions (AC-H, replacing blind AC-24–28)
+### P6 Migration and merge (AC-MIG, AC-M, AC-V)
 
-Scenario: capacity 2, cadence 21.
-- A: never met.
-- B: last met 2026-09-10.
-- D: last met 2026-10-03, needs attention, 2 high-priority topics.
-- G: last met 2026-09-25.
-- E: planned next 2026-10-12.
-- F: last met 2026-10-08.
-- H: never met, snoozed until 2026-10-11.
+Uses the fixture from v1 of this plan, plus a completion for g1/s1 on 2026-08-28. The migration runs with `today = '2026-10-08'`.
 
-1. `suggest(doc, today, 10)` returns, in order:
+1. MIG1–MIG3 as in v1 of this plan, **except that t1 and t2 both get `priority:'normal'`**.
+2. MIG4: g1 has the rule month/1, `countFrom '2026-10-08'`, and the completions `g1:s1:2026-08-28`, `g1:s1:2026-09-01` and `g1:s1:2026-10-01`. `collapsedCompletions` is 1 (09-28 folds into September).
+3. MIG5: g3 → `g3:class:2026-09-06`. g4 → week/1 and is listed as approximated. **A goal with `everyDays:150` → `{unit:'half', every:1}`.**
+4. MIG6: determinism and idempotence as in v1 of this plan (with `today` injected).
+5. **AC-MIG7 (fixed):** s1's `activeFrom` is `2026-08-28` (the earliest completion is before `createdAt` 09-01), and g1's `startDate` is `2026-08-28`. The 08-28 completion keeps its key `2026-08-28`. A completion for a deleted goal is dropped, and `orphans` is 1.
+6. **AC-MIG8 (fixed):** on the migrated doc with today 2026-10-08, g1/s1 shows August and September as history, October as done, and adherence 1/1. No period is reported as missed.
+7. MIG9: `settings.legacy` has `catchUpUntil '2026-11-07'`. `workdays [6]` → `[0,1,2,3,4,5]`.
+8. Blind AC-31–34 and AC-36 on v2. Blind AC-35, restated with base: local `{T5, 'A', base: T3}` and remote `{T4, 'B', base: T3}` → 'A' wins, and there is 1 conflict with `lostText` 'B', `updatedAt` T4 and `by` = the remote's `by`.
+9. **AC-M7:** edit "A1", sync, edit "A2", then another device changes a different entity. Next sync: **0 conflicts**.
+10. **AC-M8:** notes "ab" are uploaded during a sync while the local doc has moved on to "abc" (same device, same base). The final merge gives "abc" and **0 conflicts**.
+11. **AC-M9:** device A writes "A1" at T1. B pulls it and writes "B1" at T2 with base T1. A merges: "B1", **0 conflicts**.
+12. **AC-M10:** a meeting edit form is opened at version V1. A remote V2 with a different summary merges in, and the user saves "mine". The result is "mine", and there is 1 conflict with V2's text.
+13. **AC-M11 (sticky delete):**
+    - B tombstones s1 at T5. A, offline, edits s1's notes at T6 with base T1 and adds meeting m7.
+    - Merge (both orders): s1 is tombstoned, and m7 is tombstoned with `updatedAt ≥ T6+1ms`.
+    - A restore with `base ≥ T5` revives s1.
+    - Property tests stay commutative and idempotent, including tombstones and normalization.
+14. AC-M12: settings per key. Device A sets `workdays` and device B sets `noticesAck.privacy`: both survive the merge.
+15. AC-M13: dismissing a conflict tombstones it with no `lostText`. A conflict 31 days old is expired by `expireConflicts`. Deleting s1 tombstones conflicts on s1 and on its meetings.
+16. Blind AC-38–40 with current = 2.
 
-   | # | Student | Date | Kind | Score |
-   |---|---|---|---|---|
-   | 1 | A | 10-08 | suggested | 400 |
-   | 2 | D | 10-08 | suggested | ≈277.6 |
-   | 3 | B | 10-09 | suggested | ≈266.7 |
-   | 4 | H | 10-11 | suggested | 400 |
-   | 5 | E | 10-12 | scheduled | n/a |
-   | 6 | G | 10-16 | suggested | |
-   | 7 | F | 10-29 | suggested | |
+### P7 Storage and sync (AC-S, AC-L, AC-Y, AC-B)
+1. Blind AC-41–47 and AC-52. AC-44 targets `גיבויים/data-2026-10-08.json`.
+2. **AC-S50 (B3):** the fake Drive models copy inheriting `appProperties`. After `ensureDaily` and a pre-restore copy, the copies carry `kind:'backup'`, and discovery returns exactly 1 data file.
+3. AC-L1–L3 as in v1 of this plan. In addition: L2 (catch-up) runs on a **second device** that found v2 through appProperties, and **doesn't run after `catchUpUntil`**.
+4. **AC-L5 (B2):** devices X and Y both start from the legacy file and run discovery at the same time; the fake lets both create a v2 file. After each device's next sync:
+   - both cache the same `fileId` (the older `createdTime`);
+   - the loser is trashed with `supersededBy`;
+   - both docs deep-equal each other.
+5. **AC-L6:** a device caching the loser id sees `trashed + supersededBy`. It switches to the winner, merges its local edits, and its status is **not** `remote-missing`.
+6. AC-Y1 (revised): the cached file is 404 and discovery finds a live data file → use it. The cached file is trashed, there are no live files, a trashed data file exists and `everSynced` is set → `remote-missing` with the untrash option. Untrashing then gives a normal sync. "מחק גם מהמכשיר הזה" requires a confirmation.
+7. AC-Y2 (two tabs) and AC-Y3 (separate account DBs) as in v1 of this plan.
+8. **AC-Y5 (M1):** tab 2 dispatches action a. Tab 1's sync then merges in remote meeting r1 and writes with `gen+1`. Tab 2 dispatches action b. The IDB doc contains a, b and r1, and the next upload contains r1.
+9. **AC-Y6 (M2):** the open DB is P1 and the token's `about.permissionId` is P2. There are 0 Drive data calls under P1's DB. If P1 is dirty, the mismatch modal is shown. If P1 is clean, the app opens P2's DB. P1's students never appear in P2's upload.
+10. **AC-Y7 (shared mode):** sign in with "מחשב משותף", edit, then close the store. The IDB database list has no `one-on-one:*` entries, `localStorage` has no `oneOnOne.lastAccount`, and drafts exist only in `sessionStorage`.
+11. AC-B53 (restore, revised): the list shows backups newest first. Choosing one creates `pre-restore-*` with `kind:'backup'`. Restored entities have `updatedAt ≥` the restore time and `base` = the previous version. A missing topic t2 is tombstoned. **0 conflicts** are recorded.
+12. **AC-B54 (scrub):**
+    - `scrubPlan` with `migratedAt 2026-10-08`, today 2026-11-08, 14 v2 dailies and `V2_MODE` on → delete every `backup-*`, every `pre-migrate-v1-*` and the v1 data file.
+    - With today 2026-11-06, or with 13 dailies, or in canary mode → nothing is deleted.
+    - It uses `DELETE`, not trash.
 
-   No item is dated 10-10.
-2. D's reasons include the codes `needsAttention` and `highTopics` with the label "2 נושאים חשובים". A's include `neverMet`.
-3. Property test: no item is ever on a Saturday, even when `workdays` includes 6. No date has more than `capacity` items, counting scheduled and checkup items toward that day's load. Shuffling the input order gives the same output.
-4. A checkup planned 2026-10-06 for C gives a `checkup` item with `missed:true`, dated 10-06. C also appears as a suggested candidate, as today.
-
-### P6 Migration and merge (AC-MIG, plus blind AC-M and AC-V)
-
-The fixture `js/domain/fixtures/v1-sample.json` is the synthetic v1 doc described in §2.2, with:
-- `updatedAt` '2026-10-07T10:00:00.000Z';
-- student s1 with home, cell, mother and work phones, an email, an address, `frequencyDays` 14, `nextMeeting` 2026-10-10 10:00, and checkup c1 done in m1;
-- topics t1 (order -1, open), t2 (order 1, open) and t3 (done in m1);
-- goals:
-  - g1: everyone, recurring 30, created 2026-09-01;
-  - g2: student once, due 2026-10-01;
-  - g3: class recurring 7, created 2026-09-02;
-  - g4: recurring custom 10;
-- completions:
-  - g1/s1 on 09-03, 09-28 and 10-05 (in m1);
-  - g3/null on 09-08.
-
-1. `migrateV1(v1)` returns `schemaVersion` 2 and `classes['class-1'].name` 'ט3'. Student s1 has:
-   - `contacts {studentCell, motherPhone}` with the right digits and no other phone;
-   - `cadenceDays` 14 and `activeFrom` '2026-09-01'.
-
-   `JSON.stringify(doc)` doesn't contain the email, the address, the home number or the work number.
-2. Planned items: `planned['next:s1']` has date **'2026-10-11'** (shifted from Saturday), time '10:00' and status planned. `planned.c1` has status done and `linkedMeetingId` 'm1'.
-3. Topics:
-   - t1: priority high, order 1024;
-   - t2: priority normal, order 2048;
-   - t3: status done, `doneInMeetingId` m1.
-
-   `meetings.m1.topicIdsDone` is ['t3'].
-4. g1 has `rules [{from:'2026-09-01', unit:'month', every:1}]`. The completions are `g1:s1:2026-09-01` (completedOn 09-03) and `g1:s1:2026-10-01` (completedOn 10-05, meetingId m1). `report.collapsedCompletions` is 1, and `meetings.m1.completionIds` contains `g1:s1:2026-10-01`.
-5. g3 gives `rules [{from:'2026-09-02', unit:'week', every:1}]` and completion `g3:class:2026-09-06`. g4 gives `{unit:'week', every:1}`, and `report.approximatedGoals` is ['g4'].
-6. Every entity has `updatedAt` '2026-10-07T10:00:00.000Z', `by` 'migration-v1' and `deletedAt` null. Two runs with different stubbed `Date.now` and `Math.random`/`randomUUID` give deep-equal outputs. `migrate(migrate(v1))` deep-equals `migrate(v1)`.
-7. A completion whose v1 date (2026-08-28) is before goal `createdAt` (2026-09-01) gives `startDate` 2026-08-28 and is not dropped. A completion for a deleted goal is dropped, and `report.orphans` is 1.
-8. On the migrated fixture with today 2026-10-08, the student page goal row for g1 shows October done and adherence 100% (1/1). The current period is pending, so it's excluded until done or over.
-9. Blind AC-31–36 on v2 docs. AC-35 also applies to `students.notes`, and the conflict id format is as in §2.1. Blind AC-37 is replaced by: two devices setting `next:s1` to 10-12 and 10-14 merge to a single entity with the newer date.
-10. Blind AC-38–40 with current = 2. `migrate({schemaVersion:3})` throws `NewerSchemaError`. `validateDoc` rejects a v2 meeting with `date '08/10/2026'` at path `meetings.m1.date`.
-
-### P7 Storage and sync (blind AC-S and AC-B, plus AC-L and AC-Y)
-1. Blind AC-41–47 and AC-52 against `syncEngine`/`backups` with the fake Drive. AC-44 is adapted: the copy goes to `גיבויים/data-2026-10-08.json`. AC-52 also treats `backup-2026-09-03.json` as a daily.
-2. AC-L1: the fake Drive has only a legacy folder with `one-on-one-data.json` (the v1 fixture) and no appProperties files. First sync makes exactly:
-   - 1 `copy` to `pre-migrate-v1-*`;
-   - 1 create of `one-on-one-data-v2.json` in the same folder with `appProperties {app, kind:'data'}`;
-   - 0 writes to the v1 file.
-
-   Afterwards `meta.legacy.fileId` is set.
-3. AC-L2: the v1 file is then modified by an "old client" (adds meeting m9 and edits s1's notes). The next boot sync adds m9 and leaves s1's notes as they were in v2.
-4. AC-L3: with `oneonone.pending` holding a v1 doc (`updatedAt` newer, with an extra meeting m8), the migrated doc contains m8, `pending` is removed, and `dirty` is true until upload.
-5. AC-L4: two v2 data files found by appProperties → the older is kept, the other is merged in and trashed (blind AC-48).
-6. AC-Y1: cached `fileId` returns `trashed:true` with `everSynced` set → status `remote-deleted`, with 0 creates and 0 uploads.
-7. AC-Y2: two `createStore` instances share fake-indexeddb, a BroadcastChannel and the in-memory lock. Tab 1 adds meeting a, tab 2 (stale) adds meeting b. The IDB doc contains both, and tab 1 receives `reason:'remote'`.
-8. AC-Y3: accounts P1 and P2 use separate DBs. After signing in as P2, P1's students are not readable from P2's store.
-9. AC-Y4: a 403 `domainPolicy` from Drive gives status `error` with key `drive.blockedByDomain`. The doc stays dirty.
-
-### P8 Cutover (blind AC-53, AC-69, AC-74, AC-75 and AC-76, plus AC-Z)
-1. AC-Z1 (parity): every existing handler in `views/*` has a test that dispatches the equivalent v2 action and renders. The old tests' scenarios (topics add/urgent/reorder, goal toggle, `recordMeeting` side effects, stale order) pass through v2 selectors.
-2. AC-Z2 (trial): `localStorage['oneonone.data']` (the v1 fixture) on boot gives the IDB `one-on-one:local` doc equal to `migrateV1(fixture)`, the key is removed, and the dashboard renders s1.
-3. AC-Z3 (offline boot): with `lastAccount.permissionId` set and IDB populated, and GIS failing to load, the dashboard renders from IDB and the badge shows `auth-required`/`offline-pending`.
-4. Blind AC-74, adapted: the warning appears; afterwards DB `one-on-one:{pid}` is gone; **revoke isn't called**.
-5. Blind AC-75, adapted: deletion requires typing exactly "מחק" (other text keeps the button disabled). It calls `PATCH files/{folderId}` with `{trashed:true}` and **no DELETE and no revoke**, clears IDB and `oneonone.*`, and shows the 30-day message.
-6. Blind AC-53, plus: restoring a file without topic t2 leaves t2 tombstoned with `updatedAt` ≥ the restore time.
-7. Blind AC-76 is extended: every view rendered with all user strings set to `<img src=x onerror=alert(1)>"'` gives `main.querySelectorAll('img,script').length === 0`, and the text appears literally.
-8. AC-Z4: a remote doc with `schemaVersion 3` makes `dispatch` throw `ReadOnlyError`, shows the banner, and leaves 0 uploads.
-9. AC-Z5: a conflict entry for meeting m1 shows the banner on s1's page. "סגור" sets `dismissedAt`, and the banner is gone after the merge.
-10. AC-F1–F8 still pass on the v2 store (the drafts adapter is now IDB).
+### P8 Cutover (AC-Z)
+1. AC-Z1: every AC-CH test passes against v2 (`V2_MODE=on` in the test harness).
+2. AC-Z2 (trial migration) and AC-Z3 (offline boot in normal mode) as in v1 of this plan.
+3. AC-Z4 (read-only) and AC-Z5 (conflict banner) as in v1 of this plan.
+4. Blind AC-76 (XSS, all v2 views).
+5. **AC-Z6 (sign-out, M4):**
+   - Simulate the race: the remote no longer contains the local edit, but `dirty=false`.
+   - Sign-out pulls, merges and re-uploads, and the re-read version matches. Only then is the DB deleted.
+   - A second tab receives `signed-out`, closes its connection and shows the connect screen. `deleteDatabase` succeeds without `onblocked`.
+   - Revoke isn't called.
+6. **AC-Z7:** after the trial → Drive merge is confirmed (the dialog listed duplicates "יוסי כהן" ≈ "יוֹסִי כהן"), `one-on-one:local` no longer exists.
+7. AC-Z8: delete-all needs the exact text "מחק". It sends `PATCH {trashed:true}` with no `DELETE` and no revoke, then broadcasts `deleted`, clears IDB and the `oneonone.*` keys, and shows the 30-day message.
+8. AC-Z9 (canary switch): with `V2_MODE='off'` and no canary key, `main.js` loads the v1 app and makes 0 requests for v2 modules. With `localStorage['oneonone.canary']='1'` and `'canary'`, it loads v2. With `'on'`, it always loads v2.
+9. Blind AC-50 (`mapAuthError`, Hebrew strings) and AC-Q5 from v1 of this plan (sign-out without revoke, disconnect revokes via the GIS mock) now live here.
 
 ### P9 UX (AC-U)
-1. The student header toggle sets `needsAttention`. The students-list filter shows only flagged students, and the badge "דורש תשומת לב" appears in the suggestion row.
-2. ★ toggles `priority` with `aria-pressed` reflecting the state. Blind AC-71 (keyboard reorder and announcement) holds.
-3. "לא היום" on a suggested row for A (2026-10-08) removes A from 10-08 and places A on 10-09.
-4. In the meeting form, chip "שבוע" plus reason "מבחן" with date 2026-10-03 (Saturday + 7 = 10-10) gives a checkup on **2026-10-11**. A "נושאים לפעם הבאה" value of "א\n\nב" gives 2 new open topics.
-5. The meeting type select includes "שיחה עם הורים". Recording one for a never-met student keeps them in "לא נפגשו לאחרונה".
-6. The dashboard shows an SVG with 8 `<rect>`, no element has a `style` attribute, and the mean adherence stat equals `overall.meanAdherence`.
-7. Changing a goal from monthly to weekly in the edit form on 2026-10-08 appends the rule `{from:'2026-10-01', unit:'week', every:1}` (blind AC-12).
-8. Visual check: at 360×740, light and dark, the bottom nav is visible on every route with no horizontal overflow (blind AC-67). The sticky CTA doesn't cover the last list item.
+1. U1–U3 as in v1 of this plan.
+2. **AC-U4 (fixed):** a meeting dated **2026-10-03** (Saturday, stored as-is) with chip "שבוע" and reason "מבחן" → a checkup on 2026-10-10 shifted to **2026-10-11**. "נושאים לפעם הבאה" = "א\n\nב" → 2 new open topics.
+3. U5–U8 as in v1 of this plan.
+4. AC-U9: the goal frequency select contains "פעם במחצית", and saving it gives the rule `{unit:'half', every:1}`.
 
-### P10 E2E (Playwright, with fake GIS and Drive)
-Blind AC-67, AC-68 (adapted to 3 taps: suggestion "רשום מפגש" → type → "שמור"), AC-69, AC-70, AC-72 and AC-73 (CSP string and network allowlist). Plus:
-- an e2e version of AC-F1 using a second page that writes to the fake Drive while the first page has typed text, followed by a `focus` event;
-- a two-context test (two "devices") that edits different students offline, then reconnects, and both converge.
+### P10 E2E
+Blind AC-67, AC-68 (3 taps), AC-69, AC-70 (on `data-no-saturday` inputs), AC-72 and AC-73. In addition:
+- the e2e version of AC-F1;
+- two contexts editing offline and converging;
+- an AC-L5 race against the e2e fake;
+- console errors fail the test, **except** the single GIS inline-style CSP violation.
 
 ---
 
 ## 7. Risks
 
-1. **An old-code tab open across the deploy.** Old `normalizeData` would turn v2 maps into `[]` and could upload an empty doc. This is the reason v2 lives in a **new file** and the v1 file is never touched (AC-L1/L2). The residual risk: edits made by the old tab after migration reach v2 only as add-only (edits to existing entities are lost, but stay in the v1 file).
-2. **Migration is lossy by design:**
-   - Rolling → calendar changes what users see.
-   - Collapsed completions are counted, not kept.
-   - Custom frequencies are approximated.
-   - Dropped address, email and home/work phones are gone from v2. They **remain in `pre-migrate-v1-*` and old daily backups** until retention prunes them.
-   - The pre-migrate copy is the rollback path: a restore from file accepts v1.
-3. **The P8b cutover is the largest and riskiest step:** boot, auth, discovery and legacy all change at once. Mitigation: P7 is fully tested against fakes first, P8a ships the views on v2 in trial mode before Drive is touched, and devices are tested manually before release.
-4. **`drive.file` and appProperties.** I'm assuming `files.list` with an `appProperties` query and `PATCH {trashed:true}` on the app-created folder both work under `drive.file`. I believe they do, but I didn't verify against the live API; confirm in P8b on a real account.
-5. **Delete-all is trash, not delete.** A device that is offline at the time keeps its local copy until it syncs and sees `remote-deleted`. The banner makes the user choose; nothing is re-uploaded silently.
-6. **GIS on iOS standalone** is unchanged from today ("first tap reconnects"). Still verify on a device.
-7. **Clock skew and the no-If-Match race** are as in blind §4.4, covered by the property tests and the two-context e2e.
-8. **Strict typecheck** applies only to the new layers. Views stay non-strict, a known gap.
-9. **Tests next to code ship to Pages** (synthetic fixtures only). This is harmless, but the SW list must exclude them (AC-TL6).
+1. **Old-code tabs.** v2 never writes the v1 file. Edits from an old tab reach v2 add-only for 30 days. An old tab left open across delete-all or the scrub can re-create v1 data. That needs a tab open across a deploy plus one of those actions, and can't be fixed from new code.
+2. **Lossy migration** (collapsed completions, approximated frequencies, dropped contact fields). Rollback during the canary is the untouched v1 file. After `on`, the rollback is `pre-migrate` until the scrub deletes it (decision 14 accepts this).
+3. **The real Drive API isn't verified for:** `appProperties` inheritance on copy, `alt=media` host, untrash of an app-created folder, and `supersededBy` on a trashed file. All are in the P8c canary checklist and modelled pessimistically in the fake.
+4. **The morph** must cover the edge cases in the existing views. AC-CH and AC-F pin them down. Moving a focused keyed node blurs it, which is accepted (rare: a remote reorder during a topic edit).
+5. **Two view trees until P11** mean duplicated effort for any v1 hotfix. That's why P2 was trimmed and v1 is frozen after P2.
+6. **Shared mode** depends on `sessionStorage`. Some browsers' "reopen closed tab" restores it, which affects drafts only, not the doc. This is noted in the sign-in help text.
+7. **GIS on iOS and clock skew** are as in v1 of this plan.
+8. **The deterministic `next:{sid}`:** a meeting closing the next on device A can overwrite a concurrent reschedule on device B (LWW). This is documented, and the user sees the next as "done" and reschedules.
+9. **`base` adds ~60 bytes per entity**, about 10% of the doc size, which is acceptable.
 
-## 8. Decisions needed from the user
+## 8. Open questions
 
-1. **`staleDays`:** keep it as a separate setting (my default, so no regression), or drop it in favour of per-student cadence as the blind plan suggested?
-2. **Sign-out clears this device's local copy** after a dirty-check warning. That's my default, for shared school computers. The alternative is to keep it for faster re-entry.
-3. **"פעם במחצית" mapping:** month/5 from the goal start (my default; it drifts across school years), or a new unit aligned to the school halves (Sept–Jan, Feb–Jun)?
-4. **Old backups that contain address/email:** let retention prune them (the default: dailies are pruned per the 14-daily/12-monthly rules, `pre-migrate` after 5 newer snapshots), or scrub them actively after migration?
-5. **Needs-attention makes the student eligible today**, not just a score boost. Confirm.
-6. **"All date inputs" includes the meeting date:** a past meeting can't be recorded as a Saturday, and the ש׳ workday checkbox is removed. Confirm.
-7. **Trial → Drive when Drive already has data:** merge both (my default, with a confirm) instead of today's silent "Drive wins".
-8. **Out of scope this round unless you say otherwise:**
-   - re-import "missing students → deactivate" (G11);
-   - restore from the Drive backups list (only restore from file is kept);
-   - the meeting form as a bottom sheet (the inline form plus sticky CTA instead);
-   - median gap stat.
+None blocking. Decisions 5–15 are all reflected above. One item for the user to confirm before P10: the canary duration (I propose ≥7 days on phone and laptop, with one deliberate offline-conflict test).
