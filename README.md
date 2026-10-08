@@ -1,106 +1,106 @@
-# שיחות אישיות – ניהול שיחות אחד-על-אחד של מחנך עם תלמידים
+# One-on-one (שיחות אישיות) – managing a teacher's one-on-one meetings with students
 
-אפליקציית ווב בעברית שעוזרת למחנך לנהל שיחות אישיות עם תלמידי הכיתה: לבנות קשר אישי, להיות כתובת לצרכים של התלמידים, לעקוב אחרי עניינים לימודיים ומשמעתיים, ולאסוף מידע שיעזור לתמוך בכיתה ובכל תלמיד.
+A Hebrew web app that helps a homeroom teacher manage personal meetings with the students in their class: building a personal connection, being someone students can turn to, following up on academic and disciplinary matters, and gathering information that helps the teacher support the class and each student.
 
-כל הנתונים נשמרים ב-**Google Drive של המשתמש**, בתיקייה ייעודית.
+All data is stored in the **user's own Google Drive**, in a dedicated folder.
 
-## מה יש באפליקציה
+## Features
 
-- **טעינת רשימת תלמידים** – מקובץ אנשי קשר ‎`.vcf` (כולל טלפונים של אמא/אבא, כתובת ודוא"ל), מקובץ CSV עם עמודות "שם פרטי" ו"שם משפחה", או מהדבקת רשימת שמות. טעינה חוזרת מעדכנת את פרטי הקשר בלי לפגוע בנתונים הקיימים.
-- **מטרות** מכמה סוגים:
-  - **אישית לתלמיד** – מטרה שלי (המחנך) מול התלמיד, או מטרה של התלמיד עצמו.
-  - **לכל תלמיד** – מטרה שמסומנת אצל כל תלמיד בנפרד (למשל "לשמוע איך עבר החג").
-  - **כיתתית** – מטרה לכיתה כולה.
-  - כל מטרה יכולה להיות **חד פעמית** (עם תאריך יעד רשות) או **חוזרת** בתדירות קבועה (כל שבוע / שבועיים / חודש / … / מותאם אישית). מטרה חוזרת "נפתחת" מחדש כשמגיע מועדה.
-- **דף תלמיד**:
-  - סיכומי מפגשים מתוארכים (כולל תאריך עברי), עם סוג מפגש (אישית / מעקב / משמעתית / לימודית).
-  - נושאים לשיחה הבאה – הוספה, שינוי סדר (גרירה או חצים), סימון כבוצע, עריכה.
-  - תיבות סימון למטרות האישיות ולמטרות לכל התלמידים.
-  - קביעת המפגש הבא (תאריך, שעה, הערה), שינוי תדירות המפגשים לתלמיד, והוספת שיחות מעקב.
-  - הערות כלליות ופרטי קשר (טלפונים לחיצים).
-  - ברישום מפגש אפשר לסמן אילו נושאים נדונו ואילו מטרות הושגו, ולקבוע את המפגש הבא.
-- **לוח בקרה**:
-  - המפגשים הבאים – מפגשים שנקבעו, שיחות מעקב, והצעות שיבוץ לתלמידים לפי תדירות ודחיפות, מפוזרות על ימי הפעילות לפי מספר מפגשים מקסימלי ביום.
-  - תלמידים שלא נפגשו לאחרונה.
-  - סטטיסטיקת מטרות – לפי סוג, לפי מטרה ולפי תלמיד.
+- **Loading the student list** – from a contacts file (`.vcf`, including the parents' phone numbers, address and email), from a CSV file with "שם פרטי" (first name) and "שם משפחה" (last name) columns, or by pasting a list of names. Re-importing updates contact details without touching existing data.
+- **Goals** of several kinds:
+  - **Personal, per student** – the teacher's own goal with the student, or the student's goal.
+  - **For every student** – a goal checked off separately for each student (e.g. "hear how the holiday went").
+  - **Class-wide** – a goal for the class as a whole.
+  - Any goal can be **one-time** (with an optional target date) or **recurring** at a fixed frequency (weekly / every two weeks / monthly / … / custom). A recurring goal "opens" again when it comes due.
+- **Student page**:
+  - Dated meeting summaries (including the Hebrew date), with a meeting type (personal / follow-up / disciplinary / academic).
+  - Topics for the next conversation – add, reorder (drag or arrows), mark as done, edit.
+  - Checkboxes for personal goals and for goals for every student.
+  - Scheduling the next meeting (date, time, note), changing the meeting frequency for the student, and adding follow-up meetings.
+  - General notes and contact details (tap-to-call phone numbers).
+  - When recording a meeting you can mark which topics were discussed and which goals were achieved, and schedule the next meeting.
+- **Dashboard**:
+  - Upcoming meetings – scheduled meetings, follow-ups, and suggested slots for the other students based on frequency and urgency, spread over working days with a maximum number of meetings per day.
+  - Students not met lately.
+  - Goal statistics – by type, by goal and by student.
 
-## הפעלה
+## Running
 
-האפליקציה היא אתר סטטי (HTML/JS, ללא שלב בנייה). אפשר לארח אותה ב-GitHub Pages או בכל שרת סטטי.
+The app is a static website (HTML/JS, no build step). It can be hosted on GitHub Pages or any static server.
 
-### הרצה מקומית
+### Running locally
 
 ```bash
 npm start          # http://localhost:8080
-npm test           # בדיקות יחידה
+npm test           # unit tests
 ```
 
-### פרסום ב-GitHub Pages
+### Publishing on GitHub Pages
 
-כתובת האתר: **https://gilovi.github.io/1-on-1/**
+Site address: **https://gilovi.github.io/1-on-1/**
 
-ב-GitHub: ‏**Settings → Pages → Build and deployment**: ‏Source: *Deploy from a branch*, ענף `main`, תיקייה `/ (root)`. כל דחיפה ל-`main` מעדכנת את האתר תוך דקה-שתיים.
+On GitHub: **Settings → Pages → Build and deployment**: Source: *Deploy from a branch*, branch `main`, folder `/ (root)`. Every push to `main` updates the site within a minute or two.
 
-### התקנה כאפליקציה
+### Installing as an app
 
-האתר הוא PWA – אפשר להתקין אותו כאפליקציה עם אייקון, בלי חנות אפליקציות:
+The site is a PWA – it can be installed as an app with its own icon, without an app store:
 
-- **אנדרואיד (Chrome)**: תפריט ⋮ → "התקנת האפליקציה" / "הוספה למסך הבית".
-- **אייפון (Safari)**: כפתור השיתוף → "הוספה למסך הבית".
-- **מחשב (Chrome / Edge)**: אייקון ההתקנה בשורת הכתובת.
+- **Android (Chrome)**: ⋮ menu → "Install app" / "Add to Home screen".
+- **iPhone (Safari)**: Share button → "Add to Home Screen".
+- **Desktop (Chrome / Edge)**: the install icon in the address bar.
 
-המסכים נטענים גם ללא חיבור; השמירה ל-Drive דורשת חיבור לאינטרנט.
+The screens load without a connection; saving to Drive needs internet access.
 
-### הגדרת ההתחברות עם Google (פעם אחת, על ידי מפרסם האפליקציה)
+### Setting up Google sign-in (once, by whoever publishes the app)
 
-אחרי ההגדרה, משתמשים רק לוחצים "התחברות עם Google". בכניסות הבאות מופיע כפתור "המשך בתור…", שמתחבר בלחיצה אחת בלי מסך אישור. בזמן עבודה, ההרשאה (שתוקפה כשעה) מתחדשת אוטומטית בלחיצה הבאה של המשתמש.
+After setup, users just click "התחברות עם Google" (Sign in with Google). On later visits a "המשך בתור…" (Continue as…) button signs in with one click and no consent screen. While working, the access token (valid for about an hour) renews automatically on the user's next click.
 
-1. ב-[Google Cloud Console](https://console.cloud.google.com/) צרו פרויקט חדש.
-2. ‏**APIs & Services → Library** – הפעילו את **Google Drive API**.
-3. ‏**Google Auth Platform → Branding** (או *OAuth consent screen*):
-   - App name: ‏`שיחות אישיות`, ‏support email, לוגו (אפשר `icons/icon-512.png`, אחרי ההקטנה ל-120×120).
-   - App home page: ‏`https://gilovi.github.io/1-on-1/`
-   - Privacy policy: ‏`https://gilovi.github.io/1-on-1/privacy.html`
-   - Authorized domains: ‏`gilovi.github.io`
-4. ‏**Audience**: ‏User type *External*.
-5. ‏**Data Access**: הוסיפו רק את ההרשאה `https://www.googleapis.com/auth/drive.file`.
-6. ‏**Clients → Create client** – סוג *Web application*. תחת *Authorized JavaScript origins* הוסיפו `https://gilovi.github.io` (ולפיתוח: `http://localhost:8080`). אין צורך ב-redirect URIs.
-7. העתיקו את ה-Client ID לקובץ `js/config.js`:
+1. Create a new project in the [Google Cloud Console](https://console.cloud.google.com/).
+2. **APIs & Services → Library** – enable the **Google Drive API**.
+3. **Google Auth Platform → Branding** (or *OAuth consent screen*):
+   - App name: `שיחות אישיות`, support email, logo (you can use `icons/icon-512.png`, resized to 120×120).
+   - App home page: `https://gilovi.github.io/1-on-1/`
+   - Privacy policy: `https://gilovi.github.io/1-on-1/privacy.html`
+   - Authorized domains: `gilovi.github.io`
+4. **Audience**: user type *External*.
+5. **Data Access**: add only the `https://www.googleapis.com/auth/drive.file` scope.
+6. **Clients → Create client** – type *Web application*. Under *Authorized JavaScript origins* add `https://gilovi.github.io` (and for development: `http://localhost:8080`). No redirect URIs are needed.
+7. Copy the Client ID into `js/config.js`:
    ```js
    export const GOOGLE_CLIENT_ID = 'xxxxxxxx.apps.googleusercontent.com';
    ```
-   (המזהה אינו סוד – מקובל שהוא מופיע בקוד.) דחפו ל-`main`.
-8. **פרסום לכל המשתמשים**: ב-*Audience* לחצו **Publish app** (מעבר מ-*Testing* ל-*In production*). כל עוד האפליקציה במצב *Testing*, רק משתמשים שהוספתם ידנית תחת *Test users* יכולים להתחבר.
-9. **אימות המותג (Brand verification)**: ‏`drive.file` היא הרשאה שאינה רגישה, ולכן לא נדרשת בדיקת אבטחה – רק אימות של שם האפליקציה, הלוגו והדומיין. לפני האימות משתמשים רואים אזהרת "אפליקציה לא מאומתת" (אפשר להמשיך דרך *Advanced*), ויש מגבלה של 100 משתמשים. לאימות:
-   - אמתו בעלות על `https://gilovi.github.io/` ב-[Google Search Console](https://search.google.com/search-console) (נכס מסוג *URL prefix*, שיטת קובץ HTML – הוסיפו את הקובץ שגוגל נותנת לשורש המאגר `gilovi.github.io`, או לחלופין השתמשו בדומיין משלכם).
-   - ב-*Branding* לחצו *Submit for verification*. התהליך לוקח בדרך כלל כמה ימים.
+   (The ID is not a secret – it's normal for it to appear in the code.) Push to `main`.
+8. **Opening it to all users**: in *Audience* click **Publish app** (switching from *Testing* to *In production*). While the app is in *Testing*, only users you added manually under *Test users* can sign in.
+9. **Brand verification**: `drive.file` is a non-sensitive scope, so no security assessment is required – only verification of the app name, logo and domain. Until verified, users see an "unverified app" warning (they can continue via *Advanced*) and there is a 100-user cap. To verify:
+   - Verify ownership of `https://gilovi.github.io/` in [Google Search Console](https://search.google.com/search-console) (a *URL prefix* property, HTML file method – add the file Google gives you to the root of the `gilovi.github.io` repository, or use your own domain instead).
+   - In *Branding*, click *Submit for verification*. It usually takes a few days.
 
-#### איפה נשמרים הנתונים
+### Where the data is stored
 
-- תיקייה בשם **"שיחות אישיות - ניהול כיתה"** (ניתן לשנות במסך הפתיחה) נוצרת ב-"האחסון שלי". אפשר להעביר אותה לכל מקום ב-Drive – האפליקציה תמשיך למצוא אותה.
-- כל הנתונים בקובץ אחד: `one-on-one-data.json`.
-- פעם ביום נשמר עותק בתת-התיקייה **"גיבויים"**.
-- ההרשאה `drive.file` נותנת לאפליקציה גישה **רק לקבצים שהיא יצרה**, לא לשאר הקבצים ב-Drive.
-- שמירה אוטומטית אחרי כל שינוי. אם החיבור נקטע, השינויים נשמרים זמנית בדפדפן ויישלחו ל-Drive בהתחברות הבאה. אם הנתונים שונו במכשיר אחר, תוצג אפשרות לטעון מחדש או לשמור את הגרסה המקומית.
+- A folder named **"שיחות אישיות - ניהול כיתה"** (can be changed on the welcome screen) is created in "My Drive". You can move it anywhere in Drive – the app will keep finding it.
+- All data is in a single file: `one-on-one-data.json`.
+- Once a day a copy is saved in the **"גיבויים"** (backups) subfolder.
+- The `drive.file` scope gives the app access **only to files it created**, not to the rest of the Drive.
+- Changes save automatically. If the connection drops, changes are kept in the browser temporarily and sent to Drive on the next sign-in. If the data was changed on another device, you can choose to reload or keep the local version.
 
-### מצב ניסיון
+### Trial mode
 
-אפשר להיכנס בלי חשבון Google – הנתונים יישמרו רק בדפדפן. מתוך **הגדרות** אפשר לעבור ל-Drive בכל שלב, והנתונים יועברו. בהגדרות יש גם הורדת גיבוי ושחזור (JSON).
+You can use the app without a Google account – the data is then stored only in the browser. From **Settings** you can switch to Drive at any time and the data is moved over. Settings also offers backup download and restore (JSON).
 
-## פרטיות
+## Privacy
 
-הקובץ מכיל מידע אישי על קטינים. הוא נשמר רק בחשבון ה-Drive שלכם ונשלח רק ל-Google. אין לשמור קבצי אנשי קשר של תלמידים במאגר הקוד (`*.vcf` מוחרגים ב-`.gitignore`).
+The data file contains personal information about minors. It is stored only in your Drive account and sent only to Google. Do not commit student contact files to the repository (`*.vcf` files are excluded in `.gitignore`).
 
-## מבנה הקוד
+## Code layout
 
-| קובץ | תפקיד |
+| File | Role |
 | --- | --- |
-| `index.html`, `css/styles.css` | מעטפת ועיצוב (RTL, מצב כהה, מותאם לנייד) |
-| `manifest.webmanifest`, `sw.js`, `icons/` | התקנה כאפליקציה (PWA) ועבודה ללא חיבור |
-| `privacy.html` | מדיניות פרטיות (נדרשת לפרסום ההתחברות עם Google) |
-| `js/app.js` | ניתוב, טיפול באירועים, התחברות ל-Drive |
-| `js/store.js` | מצב האפליקציה ושמירה אוטומטית |
-| `js/storage.js` | שמירה ב-Google Drive / בדפדפן |
-| `js/model.js`, `js/logic.js` | מבנה הנתונים, מטרות, הצעות מפגשים וסטטיסטיקות (נבדק ב-`tests/`) |
-| `js/vcf.js` | קריאת קבצי vCard ורשימות שמות |
-| `js/views/*.js` | המסכים |
+| `index.html`, `css/styles.css` | Shell and styling (RTL, dark mode, mobile-friendly) |
+| `manifest.webmanifest`, `sw.js`, `icons/` | Installing as an app (PWA) and offline loading |
+| `privacy.html` | Privacy policy (required to publish Google sign-in) |
+| `js/app.js` | Routing, event handling, Drive sign-in |
+| `js/store.js` | App state and autosave |
+| `js/storage.js` | Saving to Google Drive / the browser |
+| `js/model.js`, `js/logic.js` | Data model, goals, meeting suggestions and statistics (tested in `tests/`) |
+| `js/vcf.js` | Reading vCard files and name lists |
+| `js/views/*.js` | The screens |
