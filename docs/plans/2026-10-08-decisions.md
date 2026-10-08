@@ -17,4 +17,14 @@ Taken by the user after reading `2026-10-08-comparison.md`.
 6. **Sign-out clears this device's local copy** (after the unsynced-changes check).
 7. **"Once per half-year" goals follow the school halves** (Sep–Jan, Feb–Jun/Aug), not rolling 5-month periods.
 8. **Extra in this round:** restore from the Drive backups list inside the app. Still out of scope: re-import deactivation, the meeting form as a bottom sheet, the median-gap statistic.
-9. Not asked; taking the plan's defaults: needs-attention makes a student eligible today; trial → Drive merges both (with a confirmation).
+## Answers to the critic's open questions
+
+10. **Shared computers:** add a "מחשב משותף" (shared computer) checkbox at sign-in. When ticked, nothing is kept on the device after the tab closes; otherwise the device keeps its offline copy as planned.
+11. **Migrated recurring goals:** count adherence only from the upgrade date. Past completions stay as history, with no retroactive "missed" periods.
+12. **Rollout:** canary first. The new Drive sync ships behind a switch, is tried on the author's own account (phone + laptop), then enabled for everyone.
+13. **Saturday:** a recorded meeting's own date may be a Saturday. Planned dates, checkups, snoozes and goal due dates still shift off Saturday.
+14. Not asked; taking the critic's recommendation: deleting a student wins over concurrent offline edits (sticky delete), and old backups containing address/email are scrubbed about 30 days after migration.
+
+## Defaults taken without asking
+
+15. Not asked; taking the plan's defaults: needs-attention makes a student eligible today; trial → Drive merges both (with a confirmation).
