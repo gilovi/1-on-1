@@ -69,13 +69,13 @@ The thinker (`2026-10-08-thinker-spec.md`) and architect (`2026-10-08-architect-
 | A14 | **Record-meeting UX** | A bottom sheet on mobile, a sticky CTA, 3 taps from the dashboard, quick checkup chips and new-topics field. | An inline form on the student page (also reachable from the dashboard in 2 taps), next-date only. | The same as thinker G7/G15. |
 | A15 | **Acceptance criteria** | 77 concrete criteria ready for a qa agent. | 13 unit tests. | Can be reused as the regression suite whichever way we go. |
 
-## Part 4 – Overall verdict
+## Part 3 – Overall verdict
 - The **feature surface** of the implementation matches both plans well, and in a few places (Hebrew dates, trial mode, daily-capacity scheduling) goes beyond them.
 - The **foundation** is where the plans are clearly stronger: per-entity timestamps + merge + IndexedDB (no lost data across devices or while offline), calendar-period recurrence (meaningful goal statistics), and no-`innerHTML` rendering with form drafts (no lost typing).
 - The quickest wins are small: import minimization, sign-out without revoke, Saturday shift on date pickers, notices and auth-error messages, CSP and self-hosted fonts, lint/typecheck scripts.
 - The foundation items (A2–A5) touch most of the data layer and are best done as a planned rewrite of `model`/`logic`/`store`/`storage` with a migration from the current file format, driven by the architect's acceptance criteria.
 
-## Part 3 – Process gaps (vs. the global CLAUDE.md rules)
+## Part 4 – Process gaps (vs. the global CLAUDE.md rules)
 - No `lint` or `typecheck` scripts in `package.json` (only `test`). The code is plain JS, so a typecheck would mean adding JSDoc + `tsc --checkJs` or moving to TypeScript.
 - Tests live in `tests/`, not next to the code they cover.
 - The app was built without the thinker → architect → critic → qa → builder → reviewer pipeline.
