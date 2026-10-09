@@ -50,7 +50,7 @@ export function recurrenceFields(goal = {}) {
       </label>
       <label class="field only-once"${attr.bool('hidden', goal.recurring)}>
         <span>תאריך יעד (רשות)</span>
-        <input type="date" name="dueDate" value="${goal.dueDate || ''}">
+        <input type="date" name="dueDate" value="${goal.dueDate || ''}" data-no-saturday>
       </label>
     </div>`;
 }

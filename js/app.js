@@ -4,6 +4,7 @@ import { normalizeData } from './model.js';
 import { DriveBackend, LocalStorageBackend } from './storage.js';
 import { store } from './store.js';
 import { toast, when } from './ui.js';
+import { installDateInput } from './ui/dateInput.js';
 import { clearHTML, html, setHTML } from './ui/html.js';
 import * as dashboard from './views/dashboard.js';
 import * as goals from './views/goals.js';
@@ -137,6 +138,7 @@ const app = {
   },
 
   async start() {
+    installDateInput();
     this.loadConfig();
     if (!this.config.mode) return this.showWelcome();
     if (this.config.mode === 'local') {

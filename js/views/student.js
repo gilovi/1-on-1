@@ -8,17 +8,19 @@ import { formValues, toast, when } from '../ui.js';
 import { html, attr } from '../ui/html.js';
 import { dateLabel, emptyState, goalCheckRow, ownerOptions, readRecurrence, recurrenceFields } from './common.js';
 
+// Only these phones are ever shown (they are all the importer keeps); email and address are never shown.
+const SHOWN_PHONE_LABELS = ['נייד', 'אמא', 'אבא'];
+
 function contactCard(s) {
+  const phones = s.phones.filter((p) => SHOWN_PHONE_LABELS.includes(p.label));
   return html`
     <details class="contact">
       <summary>פרטי קשר ועריכה</summary>
       <div class="contact-body">
         ${when(
-          s.phones.length,
-          html`<ul class="phones">${s.phones.map((p) => html`<li><span class="muted">${p.label}:</span> <a href="tel:${p.number}" dir="ltr">${p.number}</a></li>`)}</ul>`,
+          phones.length,
+          html`<ul class="phones">${phones.map((p) => html`<li><span class="muted">${p.label}:</span> <a href="tel:${p.number}" dir="ltr">${p.number}</a></li>`)}</ul>`,
         )}
-        ${when(s.email, html`<div><span class="muted">דוא"ל:</span> <a href="mailto:${s.email}" dir="ltr">${s.email}</a></div>`)}
-        ${when(s.address, html`<div><span class="muted">כתובת:</span> ${s.address}</div>`)}
         ${when(s.org, html`<div><span class="muted">מסגרת:</span> ${s.org}</div>`)}
         <form data-form="student.editDetails" class="field-row">
           <label class="field"><span>שם פרטי</span><input name="firstName" value="${s.firstName}" required></label>
@@ -68,7 +70,7 @@ function meetingForm(data, s, ref) {
           </fieldset>`,
         )}
         <div class="field-row">
-          <label class="field"><span>קביעת המפגש הבא (רשות)</span><input type="date" name="nextDate" min="${ref}"></label>
+          <label class="field"><span>קביעת המפגש הבא (רשות)</span><input type="date" name="nextDate" min="${ref}" data-no-saturday></label>
           <p class="muted small hint">ללא תאריך, המפגש הבא יוצע אוטומטית לפי התדירות (בסביבות ${formatDate(suggestedNext)}).</p>
         </div>
         <div class="form-actions">
@@ -101,7 +103,7 @@ function scheduleCard(data, s, ref) {
         }
       </div>
       <form data-form="student.schedule" class="field-row">
-        <label class="field"><span>תאריך</span><input type="date" name="date" value="${s.nextMeeting?.date || ''}" required></label>
+        <label class="field"><span>תאריך</span><input type="date" name="date" value="${s.nextMeeting?.date || ''}" required data-no-saturday></label>
         <label class="field narrow"><span>שעה</span><input type="time" name="time" value="${s.nextMeeting?.time || ''}"></label>
         <label class="field"><span>הערה</span><input name="note" value="${s.nextMeeting?.note || ''}" placeholder="למשל: בהפסקה הגדולה"></label>
         <button class="btn small" type="submit">${due.explicit ? 'עדכון' : 'קביעה'}</button>
@@ -131,7 +133,7 @@ function scheduleCard(data, s, ref) {
           : html`<p class="muted small">אין שיחות מעקב מתוכננות.</p>`
       }
       <form data-form="student.addCheckup" class="field-row">
-        <label class="field"><span>תאריך</span><input type="date" name="date" required value="${addDays(ref, 7)}"></label>
+        <label class="field"><span>תאריך</span><input type="date" name="date" required value="${addDays(ref, 7)}" data-no-saturday></label>
         <label class="field"><span>מה לבדוק</span><input name="note" placeholder="למשל: לבדוק איך הלך המבחן"></label>
         <button class="btn small secondary" type="submit">הוספת מעקב</button>
       </form>
