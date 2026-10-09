@@ -110,7 +110,9 @@ describe('confirm', () => {
     const dump = JSON.stringify(data);
     expect(dump).not.toContain('parent@example.com');
     expect(dump).not.toContain('הרצל');
-    expect(dump).not.toMatch(/\d{7}/);
+    // Random UUID ids can contain 7+ consecutive digits, so leave id fields out of the phone-digit scan.
+    const dumpWithoutIds = JSON.stringify(data, (key, value) => (key === 'id' ? undefined : value));
+    expect(dumpWithoutIds).not.toMatch(/\d{7}/);
   });
 
   it('with the checkbox stores only נייד, אמא and אבא (in that order) and never the home phone', () => {
