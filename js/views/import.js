@@ -1,11 +1,17 @@
 import { mergeStudents } from '../model.js';
-import { parseNameList, parseVCF } from '../vcf.js';
+import { parseNameList } from '../import/nameList.js';
+import { contactsToPhones, parseVCard } from '../import/vcard.js';
 import { formValues, readFileText, toast, when } from '../ui.js';
 import { html } from '../ui/html.js';
 
+const withFullName = (s) => ({ ...s, fullName: [s.firstName, s.lastName].filter(Boolean).join(' ') });
+
+/** Parse any supported input into preview rows. Phones are parsed here but only kept if the box is ticked at confirm. */
 function parseAny(text, filename = '') {
-  if (/\.vcf$/i.test(filename) || /BEGIN:VCARD/i.test(text)) return parseVCF(text);
-  return parseNameList(text);
+  if (/\.vcf$/i.test(filename) || /BEGIN:VCARD/i.test(text)) {
+    return parseVCard(text, { includePhones: true }).students.map(withFullName);
+  }
+  return parseNameList(text).students.map(withFullName);
 }
 
 export function render(ctx) {
@@ -16,7 +22,7 @@ export function render(ctx) {
     <section class="card">
       <h2>טעינת רשימת תלמידים</h2>
       <p>אפשר לטעון קובץ אנשי קשר (<b>‎.vcf</b>, למשל ייצוא מ"משוב"/"מנבס" או מאנשי הקשר בטלפון), קובץ <b>CSV</b> עם עמודות "שם פרטי" ו"שם משפחה", או להדביק רשימת שמות – שם בכל שורה.</p>
-      <p class="muted small">תלמידים שכבר קיימים ברשימה (לפי שם מלא) יעודכנו בפרטי הקשר בלבד – הסיכומים, הנושאים והמטרות שלהם נשמרים.</p>
+      <p class="muted small">תלמידים שכבר קיימים ברשימה (לפי שם מלא) לא יתווספו שוב – הסיכומים, הנושאים והמטרות שלהם נשמרים. מיובאים שמות בלבד; טלפונים (נייד, אמא, אבא) רק אם תסמנו זאת בתצוגה המקדימה.</p>
       <div class="field-row">
         <label class="btn secondary file-btn">
           בחירת קובץ…
@@ -41,13 +47,17 @@ export function render(ctx) {
                     <button class="btn small secondary" type="button" data-action="import.selectAll" data-value="1">סימון הכל</button>
                     <button class="btn small secondary" type="button" data-action="import.selectAll" data-value="0">ניקוי הסימון</button>
                   </div>
+                  ${when(
+                    preview.some((c) => c.contacts),
+                    html`<label class="check"><input type="checkbox" name="includePhones"><span>ייבוא טלפונים (נייד, אמא, אבא)</span></label>`,
+                  )}
                   <ul class="import-list">
                     ${preview.map(
                       (c, i) => html`<li><label class="check">
                         <input type="checkbox" name="idx" value="${i}" data-group checked>
                         <span><b>${c.fullName}</b>
                         ${when(existing.has(c.fullName.replace(/\s+/g, ' ').trim()), html`<span class="badge">קיים – יעודכן</span>`)}
-                        <span class="muted small">${c.phones.map((p) => `${p.label}: ${p.number}`).join(' · ')}</span></span>
+                        </span>
                       </label></li>`,
                     )}
                   </ul>
@@ -88,16 +98,14 @@ export const handlers = {
     ctx.rerender();
   },
   'import.confirm'(ctx, form) {
-    const idx = (formValues(form).idx || []).map(Number);
-    const chosen = idx.map((i) => ctx.ui.importPreview[i]).filter(Boolean);
+    const { idx = [], includePhones } = formValues(form);
+    const chosen = idx
+      .map((i) => ctx.ui.importPreview[Number(i)])
+      .filter(Boolean)
+      .map((c) => ({ ...c, phones: includePhones ? contactsToPhones(c.contacts) : [] }));
     if (!chosen.length) return;
     const r = ctx.store.update((data) => {
-      const res = mergeStudents(data, chosen);
-      if (!data.settings.className) {
-        const org = chosen.find((c) => c.org)?.org;
-        if (org) data.settings.className = org;
-      }
-      return res;
+      return mergeStudents(data, chosen);
     });
     ctx.ui.importPreview = null;
     toast(`נוספו ${r.added} תלמידים${r.updated ? `, עודכנו ${r.updated}` : ''}`);
