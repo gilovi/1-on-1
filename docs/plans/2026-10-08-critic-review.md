@@ -232,3 +232,33 @@ qa can start on **P0, P2, P3, P4 and P5** now. **P1** can start once two morph A
 
 ## Checked and consistent
 Recomputed AC-F1, H4, U4, Q6, N6, MIG4/7/8/9, W5, B54; the CSP string (incl. `oauth2.googleapis.com/revoke`), gen/locks (AC-Y5), account check, `supersededBy`, backup copies tagged `kind:'backup'`, restore base, tombstone allowlist, per-key settings, phase dependencies and `V2_MODE`.
+
+---
+
+# Round 3: check of plan v3 (2026-10-09)
+
+## Verdict: P1 can start with one fix (M-1); P2–P5 clear; P6 onward still blocked
+The pending-only merge is the right direction and fixes the round-2 B-1 case, but it misses a "descendant" case, and the rules don't define what happens when both sides are this device's own pending edits. Both fixes are small.
+
+## Blockers (§3.1/§3.2, gating P6/P7)
+- **B-5. "Known" doesn't include a remote built on top of L (`R.base == L`).** With next-sync confirmation (AC-Y9), A's still-pending A1 meets B's B1 (base = A1): rule 2 fires, A reverts B's newer text and logs a conflict; the devices then keep re-overwriting each other, adding a conflict each round. AC-M9 passes only because it assumes "nothing pending"; AC-M15's second half breaks. Don't confirm right after upload (uploads have no If-Match). **Fix:** a third "known" case, `R.base` deep-equals L's identity → no conflict, LWW, and the id leaves `pending`. ACs: an AC-M9 variant with A1 still pending (B1, 0 conflicts); AC-M15 with A2 unconfirmed (exactly 1 conflict total; the next two syncs per device add 0).
+- **B-6. Rule 2 is undefined when both versions are this device's own pending edits**, which is exactly what the sync's final write (`merge(cur, mergedRemote)`) produces while the user keeps typing. The user's newest text can go into a false conflict, or be lost via LWW with a fast-clock remote. **Fix:** two versions with `by === deviceId` never conflict; in the final write, an id edited locally during the sync takes cur's content with `base = L'.base` and `updatedAt = max(cur, L') + 1ms`; set `maxSeen ≥ L'.updatedAt`. AC: AC-M8 plus a concurrent remote R → final "abc", exactly 1 conflict (R), textarea shows "abc".
+
+## Major
+- **M-1 (P1). Morph and AC-F12 don't protect unkeyed checkbox groups** (`js/views/student.js:61,67`: topic/goal checkboxes are `<label>` siblings in a `<fieldset>`). A remote topic inserted above a ticked one moves the tick to the wrong topic. **Fix:** widen F12 to any repeated sibling containing a form control; make the morph treat a checkbox/radio's `name`+`value` as part of its identity. AC: tick t2, remote topic inserted at top, t2 still the only ticked box.
+- **M-2. A pending edit that didn't touch the text still reverts newer text** (e.g. phone snoozes s1 while the laptop wrote notes → laptop's notes go to the conflict banner). **Fix:** `pending[coll:id] = {text: bool}`; if the pending edit didn't touch a protected field, rule 2 takes R's protected fields, no conflict. AC: phone snooze + laptop notes → both kept, 0 conflicts.
+- **M-3. Save-time check logs a false conflict after a rule-2 re-stamp is confirmed.** **Fix:** keep `baseText` in the draft and conflict only when `current.text ≠ draft.baseText` (or advance the draft base when the merge re-stamps an own version).
+
+## Minor
+1. Confirmation by timestamp watermark is unsafe if the clock steps back; `maxSeen` is undefined. Confirm by identity (`uploaded: {key: identity}`) under the `doc:` lock; define `maxSeen` as the max of every stamp written or merged.
+2. Clarify rule order for students: compare `(epoch, tombstone)` first; if both live at the same epoch, apply rules 2 and 3. Rule 2's epoch check doesn't apply to other collections.
+3. A pending meeting edit losing to a meeting tombstone drops the summary without a conflict: state it's accepted (delete wins) or record a conflict.
+4. Restore stamping uses `updatedAt = now`; use `tx` stamping (`max(now, maxSeen + 1ms)`).
+5. AC-Z5 (v1/v2 text) says "סגור sets `dismissedAt`"; v3 dismissal tombstones and strips `lostText`. Restate.
+6. P2's Saturday shift isn't in D1–D9 (add D10, or keep AC-CH fixtures off Saturday planned dates); P2's D7/D8 commits must come after P1(a).
+7. Shared mode with a duplicated tab copies `sessionStorage` (same `deviceId`, separate docs): per-tab `deviceId` or a single-tab Web Lock.
+8. AC-M11: create m7 at T7 and expect `≥ T7+1ms`.
+9. AC-L7: also cover "file explicitly trashed, folder live" (in real Drive, trashing a folder trashes its children).
+
+## Checked
+B-1 (for the round-2 scenario), B-2 (apart from M-3), B-3, B-4 resolved. Three-device re-stamping converges except via B-5. Restore/epoch consistent. M-A–M-D resolved apart from M-1. Recomputed AC-W4 (0/2, 0/3), W6 (null, 0/1), W5, MIG8, AC-35, AC-M16, AC-Y8. v2 leftovers fully replaced apart from minors 4 and 5.
