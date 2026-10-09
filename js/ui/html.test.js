@@ -84,3 +84,93 @@ describe('attr.bool (AC-TL4)', () => {
     expect(mod.raw).toBeUndefined();
   });
 });
+
+// P0 review findings #2 to #5 (docs/plans/2026-10-09-p0-review.md): SafeHtml must be unforgeable and immutable,
+// html must only work as a tagged template, and attr.bool must only emit allowlisted attribute names.
+const PAYLOAD = '<img src=x onerror=1>';
+
+/** Run a forgery attempt; an attempt that throws is a rejection, which is fine. Returns the object or null. */
+function attempt(make) {
+  try {
+    return make();
+  } catch {
+    return null;
+  }
+}
+
+describe('SafeHtml cannot be forged (review #2)', () => {
+  const forgeries = {
+    'new (html``.constructor)(payload)': () => new (html``.constructor)(PAYLOAD),
+    'Object.create(proto) with .s set': () => Object.assign(Object.create(Object.getPrototypeOf(html``)), { s: PAYLOAD }),
+  };
+
+  for (const [name, make] of Object.entries(forgeries)) {
+    it(`parseSafe rejects ${name}`, () => {
+      const forged = attempt(make);
+      if (forged === null) return;
+      expect(() => parseSafe(forged)).toThrow(TypeError);
+    });
+
+    it(`html escapes ${name} when interpolated`, () => {
+      const forged = attempt(make);
+      if (forged === null) return;
+      const out = String(html`<p>${forged}</p>`);
+      expect(out).not.toContain('<img');
+    });
+  }
+});
+
+describe('SafeHtml is immutable (review #3)', () => {
+  it('assigning .s either throws or has no effect on what parseSafe creates', () => {
+    const h = html`<b>x</b>`;
+    try {
+      h.s = PAYLOAD;
+    } catch {
+      return; // frozen: strict-mode assignment threw
+    }
+    const frag = parseSafe(h);
+    expect(frag.querySelector('img')).toBeNull();
+    expect(frag.querySelector('b')).not.toBeNull();
+  });
+
+  it('a minted SafeHtml is frozen', () => {
+    expect(Object.isFrozen(html`<b>x</b>`)).toBe(true);
+  });
+});
+
+describe('html only works as a tagged template (review #4)', () => {
+  it('a plain array call throws TypeError', () => {
+    expect(() => html([PAYLOAD])).toThrow(TypeError);
+  });
+
+  it('an array with a fake raw property throws TypeError', () => {
+    expect(() => html(Object.assign([PAYLOAD], { raw: [PAYLOAD] }))).toThrow(TypeError);
+  });
+
+  it('a string argument throws TypeError', () => {
+    expect(() => html(PAYLOAD)).toThrow(TypeError);
+  });
+
+  it('a real tagged template still works', () => {
+    expect(String(html`<b>${'a'}</b>`)).toBe('<b>a</b>');
+  });
+});
+
+describe('attr.bool validates the attribute name (review #5)', () => {
+  it('throws TypeError for a name that smuggles another attribute', () => {
+    expect(() => attr.bool('x onmouseover=alert(4)', true)).toThrow(TypeError);
+  });
+
+  it.each(['onclick', 'foo', '', 'checked disabled', 'CHECKED"'])('throws TypeError for %j', (name) => {
+    expect(() => attr.bool(name, true)).toThrow(TypeError);
+  });
+
+  it('validates the name even when the condition is false', () => {
+    expect(() => attr.bool('x onmouseover=alert(4)', false)).toThrow(TypeError);
+  });
+
+  it.each(['checked', 'selected', 'disabled', 'hidden', 'open', 'required', 'readonly', 'multiple'])('allows %s', (name) => {
+    expect(String(attr.bool(name, true))).toBe(` ${name}`);
+    expect(String(attr.bool(name, false))).toBe('');
+  });
+});

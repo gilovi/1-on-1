@@ -93,3 +93,46 @@ describe('style= in template literals (active from P2)', () => {
     expect(await errors(code, 'js/views/x.js')).toEqual([]);
   });
 });
+
+// P0 review #4 and #6: html must be a tagged template, and the other HTML sinks are banned outside js/ui/html.js.
+const restricted = (code, filePath) =>
+  errors(code, filePath).then((e) => e.filter((m) => m.ruleId === 'no-restricted-properties' || m.ruleId === 'no-restricted-syntax'));
+
+describe('html called as a plain function (review #4)', () => {
+  const imp = "import { html } from '../ui/html.js';\n";
+
+  it('reports a direct call html([...]) in a view', async () => {
+    const e = await errors(`${imp}export const f = () => html(['x']);\n`, 'js/views/x.js', 'no-restricted-syntax');
+    expect(e.length).toBe(1);
+  });
+
+  it('does not report a tagged template', async () => {
+    expect(await errors(`${imp}export const f = (n) => html\`<b>\${n}</b>\`;\n`, 'js/views/x.js')).toEqual([]);
+  });
+
+  it('does not report inside js/ui/html.js', async () => {
+    expect(await errors("const html = (s) => s;\nexport const f = () => html(['x']);\n", 'js/ui/html.js')).toEqual([]);
+  });
+});
+
+describe('other HTML sinks (review #6)', () => {
+  const sinks = {
+    'Object.assign(el, { innerHTML })': 'export const f = (el, x) => Object.assign(el, { innerHTML: x });\n',
+    'Object.assign(el, { outerHTML })': 'export const f = (el, x) => Object.assign(el, { outerHTML: x });\n',
+    'document.write': 'export const f = (x) => document.write(x);\n',
+    'document.writeln': 'export const f = (x) => document.writeln(x);\n',
+    'createContextualFragment': 'export const f = (range, x) => range.createContextualFragment(x);\n',
+    'DOMParser.parseFromString': "export const f = (x) => new DOMParser().parseFromString(x, 'text/html');\n",
+    'setHTMLUnsafe': 'export const f = (el, x) => el.setHTMLUnsafe(x);\n',
+  };
+
+  for (const [name, code] of Object.entries(sinks)) {
+    it(`reports ${name} in a view`, async () => {
+      expect((await restricted(code, 'js/views/x.js')).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it(`does not report ${name} in js/ui/html.js`, async () => {
+      expect(await restricted(code, 'js/ui/html.js')).toEqual([]);
+    });
+  }
+});
