@@ -2,7 +2,7 @@
 // Network-first for the app's own files, so a new deploy is picked up on the next load while online.
 // Google APIs and sign-in are never cached.
 
-const CACHE = 'one-on-one-v2';
+const CACHE = 'one-on-one-v3';
 const SHELL = [
   './',
   'index.html',
@@ -17,6 +17,9 @@ const SHELL = [
   'js/storage.js',
   'js/store.js',
   'js/ui.js',
+  'js/import/nameList.js',
+  'js/import/vcard.js',
+  'js/ui/dateInput.js',
   'js/ui/html.js',
   'js/vcf.js',
   'js/views/common.js',
@@ -26,6 +29,13 @@ const SHELL = [
   'js/views/settings.js',
   'js/views/student.js',
   'js/views/students.js',
+  'fonts/OFL.txt',
+  'fonts/rubik-hebrew-400.woff2',
+  'fonts/rubik-hebrew-500.woff2',
+  'fonts/rubik-hebrew-700.woff2',
+  'fonts/rubik-latin-400.woff2',
+  'fonts/rubik-latin-500.woff2',
+  'fonts/rubik-latin-700.woff2',
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',

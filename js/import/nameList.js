@@ -58,7 +58,7 @@ const FULL = /^(שם|שם מלא|name|full ?name)$/i;
  * @returns {{ students: { firstName: string, lastName: string, contacts: null }[], duplicates: number }}
  */
 export function parseNameList(text) {
-  const rows = parseRows(text.replace(/^﻿/, ''));
+  const rows = parseRows(text.replace(/^\uFEFF/, ''));
   let toStudent = (cells) => (cells.length >= 2 ? { firstName: cells[0], lastName: cells[1] } : splitLastWord(cells[0]));
   if (rows.length) {
     const head = rows[0];

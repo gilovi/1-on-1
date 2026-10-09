@@ -127,7 +127,7 @@ function splitFullName(full) {
  * @param {string} text
  */
 export function readCards(text) {
-  const lines = unfold(text.replace(/^﻿/, ''));
+  const lines = unfold(text.replace(/^\uFEFF/, ''));
   const cards = [];
   let skipped = 0;
   let current = null;
