@@ -80,8 +80,8 @@ describe.skip('domain -> ui import ban (active from P3, AC-TL2)', () => {
   });
 });
 
-// Active from P2 (style= lint rule). Unskip then.
-describe.skip('style= in template literals (active from P2)', () => {
+// Active from P2 (style= lint rule).
+describe('style= in template literals (active from P2)', () => {
   it('reports an error for style= inside an html`` template', async () => {
     const code = "import { html } from '../ui/html.js';\nexport const f = (n) => html`<div style=\"width:${n}%\"></div>`;\n";
     const e = await errors(code, 'js/views/x.js', 'no-restricted-syntax');
