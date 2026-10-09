@@ -2,6 +2,8 @@
 
 This file replaces `docs/plans/2026-10-08-hybrid-plan.md`. It addresses both rounds of `2026-10-08-critic-review.md` and items 5–15 of `2026-10-08-decisions.md`, which are binding.
 
+> **Round 4 amendments:** see `2026-10-09-hybrid-plan-round4.md`. It replaces §3.1 "Confirming pending ids", all of §3.2, and §3.3 steps 2–4, and adds or changes several ACs (F4, F12, F14, F15, N1, N7, M8–M22, Y7, Y9–Y12, L7, B53, Z5, D10). **Where the two differ, the round-4 file wins.**
+
 > **P0 is unchanged:** same scope, same AC-TL1–5, so qa's in-progress P0 work isn't affected. Round 3 changes P1 (an added sub-step order, new morph ACs, and AC-CH seeding), P3 (the AC-N1 `base` rule) and later phases.
 
 ## Changes from earlier versions of this plan
