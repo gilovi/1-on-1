@@ -4,7 +4,9 @@ import { parseVCF, parseNameList } from './vcf.js';
 
 const sample = readFileSync(new URL('./fixtures/sample.vcf', import.meta.url), 'utf8');
 
-test('parses names, contact details and labeled parent phones', () => {
+// Intentional behaviour change (plan P2, divergence D7, user decision): email, address and home/work phones
+// are never imported any more. Only the נייד/אמא/אבא phones remain.
+test('parses names and the labeled student/parent phones, but not email, address or home phone', () => {
   const contacts = parseVCF(sample);
   assert.strictEqual(contacts.length, 3);
   const [moshe, yosef] = contacts;
@@ -12,10 +14,9 @@ test('parses names, contact details and labeled parent phones', () => {
   assert.strictEqual(moshe.lastName, 'כהן');
   assert.strictEqual(moshe.fullName, 'משה דוד כהן');
   assert.strictEqual(moshe.org, 'בית ספר לדוגמה ט1');
-  assert.strictEqual(moshe.email, 'parent@example.com');
-  assert.strictEqual(moshe.address, 'הרצל 1/2 מיקוד 1234567, עיר לדוגמה');
+  assert.strictEqual(moshe.email, '');
+  assert.strictEqual(moshe.address, '');
   assert.deepEqual(moshe.phones, [
-    { label: 'בית', number: '031111111' },
     { label: 'נייד', number: '0500000001' },
     { label: 'אמא', number: '0500000001' },
     { label: 'אבא', number: '0500000002' },
