@@ -12,10 +12,11 @@ export function percent(r) {
 }
 
 export function progressBar(rate, { label = '' } = {}) {
-  const pct = rate === null || rate === undefined ? 0 : Math.round(rate * 100);
+  const pct = rate === null || rate === undefined ? 0 : Math.min(100, Math.max(0, Math.round(rate * 100)));
   const level = pct >= 75 ? 'good' : pct >= 40 ? 'mid' : 'low';
+  const step = Math.round(pct / 5) * 5; // width comes from a pct-* class: inline style= is blocked by the CSP
   return html`<div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${label}">
-    <div class="progress-fill ${level}" style="width:${pct}%"></div>
+    <div class="progress-fill ${level} pct-${step}"></div>
   </div>`;
 }
 
